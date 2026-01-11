@@ -1,0 +1,102 @@
+# Rosva Agent Configuration
+# Configure specialized research agents
+
+agents:
+  public-records:
+    enabled: true
+    name: "Public Records Agent"
+    description: "Searches public records databases"
+    sources:
+      - pacer
+      - opencorporates
+      - sec_edgar
+      - fara
+      - fec
+      - irs_990
+    rate_limit: 30  # requests per minute
+    timeout: 30000  # ms
+
+  social-media:
+    enabled: true
+    name: "Social Media Agent"
+    description: "Analyzes public social media presence"
+    platforms:
+      - twitter
+      - linkedin
+      - youtube
+      - podcast
+    rate_limit: 60
+    timeout: 15000
+
+  corporate:
+    enabled: true
+    name: "Corporate Agent"
+    description: "Researches corporate affiliations"
+    sources:
+      - sec
+      - state_registry
+      - nonprofit
+      - board
+    rate_limit: 30
+    timeout: 30000
+
+  media:
+    enabled: true
+    name: "Media Agent"
+    description: "Searches news and media sources"
+    sources:
+      - news
+      - press
+      - interview
+      - academic
+    reliability_tiers:
+      wire_service: 0.9
+      major_newspaper: 0.85
+      broadcast: 0.8
+      trade_publication: 0.75
+      blog: 0.4
+    rate_limit: 60
+    timeout: 20000
+
+  network:
+    enabled: true
+    name: "Network Agent"
+    description: "Analyzes relationship networks"
+    max_depth: 2
+    rate_limit: 30
+    timeout: 30000
+
+# Swarm coordination settings
+swarm:
+  max_concurrent_agents: 10
+  coordination_strategy: "parallel"  # parallel, sequential, hierarchical
+  attention_mechanism: "flash"  # flash, multi-head, linear
+
+# Research depth presets
+depth_presets:
+  quick:
+    description: "Fast initial scan"
+    agents:
+      - social-media
+      - media
+    max_queries: 5
+
+  standard:
+    description: "Balanced research"
+    agents:
+      - public-records
+      - social-media
+      - corporate
+      - media
+    max_queries: 15
+
+  comprehensive:
+    description: "Deep investigation"
+    agents:
+      - public-records
+      - social-media
+      - corporate
+      - media
+      - network
+    max_queries: 50
+    follow_leads: true

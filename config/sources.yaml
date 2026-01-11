@@ -1,0 +1,142 @@
+# Rosva Data Source Configuration
+# Define data sources and their reliability scores
+
+# Source reliability tiers (0.0 - 1.0)
+reliability_tiers:
+  # Official Records (0.9-1.0)
+  government:
+    score: 0.95
+    description: "Official government records"
+    examples:
+      - sec.gov
+      - fara.gov
+      - fec.gov
+
+  court:
+    score: 0.95
+    description: "Court records and legal filings"
+    examples:
+      - pacer.uscourts.gov
+
+  corporate_filing:
+    score: 0.90
+    description: "Official corporate filings"
+    examples:
+      - SEC EDGAR
+      - State registries
+
+  # Established Media (0.8-0.9)
+  wire_service:
+    score: 0.90
+    description: "Major wire services"
+    domains:
+      - reuters.com
+      - apnews.com
+      - afp.com
+
+  major_newspaper:
+    score: 0.85
+    description: "Major newspapers of record"
+    domains:
+      - nytimes.com
+      - washingtonpost.com
+      - wsj.com
+      - ft.com
+      - theguardian.com
+
+  broadcast:
+    score: 0.80
+    description: "Major broadcast networks"
+    domains:
+      - bbc.com
+      - cnn.com
+      - npr.org
+
+  # Academic & Research (0.85)
+  academic:
+    score: 0.85
+    description: "Peer-reviewed academic sources"
+    domains:
+      - jstor.org
+      - scholar.google.com
+      - researchgate.net
+
+  # Secondary Sources (0.5-0.75)
+  trade_publication:
+    score: 0.75
+    description: "Industry/trade publications"
+
+  regional_news:
+    score: 0.70
+    description: "Regional/local news"
+
+  magazine:
+    score: 0.70
+    description: "General interest magazines"
+
+  # Social/User Generated (0.3-0.6)
+  social_verified:
+    score: 0.60
+    description: "Verified social media accounts"
+
+  social_unverified:
+    score: 0.40
+    description: "Unverified social media"
+
+  blog:
+    score: 0.40
+    description: "Blogs and opinion sites"
+
+  wiki:
+    score: 0.50
+    description: "Wiki sources"
+    note: "Useful as starting point, verify claims independently"
+
+  # Low reliability
+  forum:
+    score: 0.20
+    description: "Forums and discussion boards"
+
+  unknown:
+    score: 0.30
+    description: "Unknown or unclassified sources"
+
+# API configurations
+apis:
+  openai:
+    required: true
+    description: "For embeddings and report generation"
+    env_var: "OPENAI_API_KEY"
+
+  exa:
+    required: false
+    description: "Enhanced web search"
+    env_var: "EXA_API_KEY"
+
+  serpapi:
+    required: false
+    description: "Google search results"
+    env_var: "SERPAPI_KEY"
+
+  youtube:
+    required: false
+    description: "YouTube video search"
+    env_var: "YOUTUBE_API_KEY"
+
+# Domain blocklist (skip these sources)
+blocklist:
+  domains:
+    - pinterest.com
+    - facebook.com  # Limited public access
+    - instagram.com  # Limited public access
+  patterns:
+    - "*-spam.com"
+    - "fake-news-*"
+
+# Domain allowlist (prioritize these)
+allowlist:
+  priority_domains:
+    - reuters.com
+    - apnews.com
+    - sec.gov
+    - opencorporates.com
