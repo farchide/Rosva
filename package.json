@@ -14,6 +14,7 @@
     "demo": "npx ts-node src/demo.ts",
     "deep": "npx ts-node src/deep/research.ts",
     "ultimate": "npx ts-node src/deep/ultimate-research.ts",
+    "pahlavi": "npx ts-node src/deep/reza-pahlavi-research.ts",
     "lint": "eslint src/**/*.ts",
     "clean": "rm -rf dist"
   },

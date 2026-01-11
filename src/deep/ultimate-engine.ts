@@ -52,7 +52,9 @@ export type EdgeType =
   | 'COLLABORATED_WITH' | 'QUOTED_BY' | 'SPOKE_AT' | 'AUTHORED'
   | 'INVENTED' | 'EDUCATED_AT' | 'LOCATED_IN' | 'FAMILY_OF'
   | 'INFLUENCED_BY' | 'MEMBER_OF' | 'OWNS_DOMAIN' | 'USES_EMAIL'
-  | 'BREACHED_AT' | 'MENTIONED_IN' | 'LINKED_TO';
+  | 'BREACHED_AT' | 'MENTIONED_IN' | 'LINKED_TO'
+  | 'MARRIED_TO' | 'CHILD_OF' | 'PARENT_OF' | 'SIBLING_OF'
+  | 'ADVISED_BY' | 'MET_WITH' | 'ENDORSED_BY' | 'ASSOCIATED_WITH';
 
 export interface Evidence {
   source: string;
