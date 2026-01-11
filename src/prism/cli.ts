@@ -6,13 +6,20 @@
  * Command-line interface for the PRISM intelligence research engine.
  *
  * Usage:
- *   prism research "Person Name"
- *   prism research "Person Name" --depth=deep
- *   prism research "Person Name" --output=json
+ *   npx ts-node src/prism/cli.ts research "Person Name"
+ *   npx ts-node src/prism/cli.ts research "Person Name" --depth=deep
+ *   npx ts-node src/prism/cli.ts research "Person Name" --output=json
  */
 
-import { PRISMOrchestrator, SearchResult } from './core/orchestrator';
+import { PRISMOrchestrator } from './core/orchestrator';
 import { PRISMVisualizer } from './core/visualizer';
+import {
+  CompositeSearchProvider,
+  WikipediaProvider,
+  DuckDuckGoProvider,
+  researchSubject,
+  SearchResult
+} from './search/search-provider';
 
 // Simple argument parsing
 const args = process.argv.slice(2);
@@ -23,6 +30,7 @@ interface CLIOptions {
   depth: 'QUICK' | 'STANDARD' | 'DEEP' | 'EXHAUSTIVE';
   output: 'text' | 'json' | 'mermaid';
   help: boolean;
+  offline: boolean;
 }
 
 function parseArgs(args: string[]): CLIOptions {
@@ -30,7 +38,8 @@ function parseArgs(args: string[]): CLIOptions {
     command: 'help',
     depth: 'STANDARD',
     output: 'text',
-    help: false
+    help: false,
+    offline: false
   };
 
   for (let i = 0; i < args.length; i++) {
@@ -44,6 +53,8 @@ function parseArgs(args: string[]): CLIOptions {
       }
     } else if (arg === '--help' || arg === '-h') {
       options.help = true;
+    } else if (arg === '--offline') {
+      options.offline = true;
     } else if (arg.startsWith('--depth=')) {
       options.depth = arg.split('=')[1].toUpperCase() as any;
     } else if (arg.startsWith('--output=')) {
@@ -73,7 +84,7 @@ function printHelp(): void {
 ╚══════════════════════════════════════════════════════════════════════════════╝
 
 USAGE:
-  prism research "Person Name" [options]
+  npm run prism -- research "Person Name" [options]
 
 COMMANDS:
   research, r    Research a person by name
@@ -85,13 +96,16 @@ OPTIONS:
   --output=FORMAT   Output format: text, json, mermaid
                     Default: text
 
+  --offline         Skip web search, use minimal demo data
+                    Default: false (live search enabled)
+
   --help, -h        Show this help message
 
 EXAMPLES:
-  prism research "Reza Pahlavi"
-  prism research "Reza Pahlavi" --depth=deep
-  prism research "Reza Pahlavi" --output=json
-  prism r "Person Name" --depth=exhaustive --output=mermaid
+  npm run prism -- research "Reza Pahlavi"
+  npm run prism -- research "Patrick Bet-David" --depth=deep
+  npm run prism -- research "Masih Alinejad" --output=json
+  npm run prism -- r "Person Name" --depth=exhaustive --output=mermaid
 
 METHODOLOGY:
   PRISM uses open-source intelligence (OSINT) to analyze public figures.
@@ -108,28 +122,25 @@ METHODOLOGY:
 `);
 }
 
-/**
- * Simulated search results for demonstration
- * In production, this would call a real search API
- */
-function generateSearchQueries(subject: string): string[] {
-  return [
-    `${subject} biography background`,
-    `${subject} family parents children spouse`,
-    `${subject} education university school`,
-    `${subject} career positions organizations`,
-    `${subject} political positions statements`,
-    `${subject} foreign relations meetings`,
-    `${subject} Israel Netanyahu meeting`,
-    `${subject} United States Trump administration`,
-    `${subject} funding sources backers`,
-    `${subject} advisors associates inner circle`,
-    `${subject} controversy criticism scandal`,
-    `${subject} coalition alliance opposition`,
-    `${subject} media appearances interviews`,
-    `${subject} social media twitter instagram`,
-    `${subject} timeline chronology history`
-  ];
+function printBanner(subject: string, depth: string, output: string): void {
+  console.log(`
+╔══════════════════════════════════════════════════════════════════════════════╗
+║                                                                              ║
+║  ██████╗ ██████╗ ██╗███████╗███╗   ███╗                                      ║
+║  ██╔══██╗██╔══██╗██║██╔════╝████╗ ████║                                      ║
+║  ██████╔╝██████╔╝██║███████╗██╔████╔██║                                      ║
+║  ██╔═══╝ ██╔══██╗██║╚════██║██║╚██╔╝██║                                      ║
+║  ██║     ██║  ██║██║███████║██║ ╚═╝ ██║                                      ║
+║  ╚═╝     ╚═╝  ╚═╝╚═╝╚══════╝╚═╝     ╚═╝                                      ║
+║                                                                              ║
+║  Open-Source Truth & Accountability Engine                                   ║
+║  Research Target: ${subject.padEnd(55)}║
+║                                                                              ║
+╚══════════════════════════════════════════════════════════════════════════════╝
+`);
+  console.log(`🎯 Subject: ${subject}`);
+  console.log(`📊 Depth: ${depth}`);
+  console.log(`📄 Output: ${output}\n`);
 }
 
 /**
@@ -146,93 +157,108 @@ async function main(): Promise<void> {
   if (options.command === 'research') {
     if (!options.subject) {
       console.error('\n❌ Error: Please provide a subject name.\n');
-      console.error('Usage: prism research "Person Name"\n');
+      console.error('Usage: npm run prism -- research "Person Name"\n');
       process.exit(1);
     }
 
-    console.log(`
-╔══════════════════════════════════════════════════════════════════════════════╗
-║                                                                              ║
-║  ██████╗ ██████╗ ██╗███████╗███╗   ███╗                                      ║
-║  ██╔══██╗██╔══██╗██║██╔════╝████╗ ████║                                      ║
-║  ██████╔╝██████╔╝██║███████╗██╔████╔██║                                      ║
-║  ██╔═══╝ ██╔══██╗██║╚════██║██║╚██╔╝██║                                      ║
-║  ██║     ██║  ██║██║███████║██║ ╚═╝ ██║                                      ║
-║  ╚═╝     ╚═╝  ╚═╝╚═╝╚══════╝╚═╝     ╚═╝                                      ║
-║                                                                              ║
-║  Open-Source Truth & Accountability Engine                                   ║
-║                                                                              ║
-╚══════════════════════════════════════════════════════════════════════════════╝
+    printBanner(options.subject, options.depth, options.output);
+
+    let searchResults: SearchResult[];
+
+    if (options.offline) {
+      console.log('📴 Offline mode: Using minimal demo data\n');
+      searchResults = [{
+        title: `${options.subject} - Wikipedia`,
+        url: `https://en.wikipedia.org/wiki/${options.subject.replace(/\s+/g, '_')}`,
+        snippet: `${options.subject} is a notable public figure.`,
+        source: 'Wikipedia'
+      }];
+    } else {
+      // Use live search
+      console.log('🌐 Live search mode: Gathering data from the web...\n');
+
+      const provider = new CompositeSearchProvider([
+        new WikipediaProvider(),
+        new DuckDuckGoProvider()
+      ]);
+
+      try {
+        searchResults = await researchSubject(options.subject, provider, {
+          maxQueriesParallel: 2,
+          resultsPerQuery: 5
+        });
+
+        // If no results found, provide helpful message
+        if (searchResults.length === 0) {
+          console.log('\n⚠️  No search results found. This could be due to:');
+          console.log('   • Network restrictions in this environment');
+          console.log('   • Rate limiting from search providers');
+          console.log('   • The subject name may need different spelling\n');
+          console.log('💡 TIP: Use the programmatic API to provide your own search results:');
+          console.log(`
+   import { PRISMOrchestrator } from './core/orchestrator';
+   import { SearchResult } from './search/search-provider';
+
+   const results: SearchResult[] = [
+     { title: "...", url: "...", snippet: "...", source: "..." }
+   ];
+
+   const orchestrator = new PRISMOrchestrator();
+   const report = await orchestrator.research("${options.subject}", results);
 `);
-
-    console.log(`🎯 Subject: ${options.subject}`);
-    console.log(`📊 Depth: ${options.depth}`);
-    console.log(`📄 Output: ${options.output}\n`);
-
-    // Generate search queries
-    const queries = generateSearchQueries(options.subject);
-    console.log(`🔍 Generated ${queries.length} research queries\n`);
-
-    console.log('📡 Search Queries:');
-    for (const query of queries.slice(0, 5)) {
-      console.log(`   • ${query}`);
+        }
+      } catch (error) {
+        console.error('❌ Search failed:', error instanceof Error ? error.message : 'Unknown error');
+        console.log('\n💡 TIP: Use --offline flag for demo mode, or provide search results programmatically.\n');
+        searchResults = [];
+      }
     }
-    console.log(`   • ... and ${queries.length - 5} more\n`);
 
-    console.log('⚠️  NOTE: PRISM requires search results to be provided.');
-    console.log('   In production, integrate with a search API (WebSearch, SerpAPI, etc.)\n');
+    console.log(`📊 Loaded ${searchResults.length} search results\n`);
 
-    console.log('📋 To use PRISM programmatically:\n');
-    console.log(`
-import { PRISMOrchestrator } from './core/orchestrator';
-import { PRISMVisualizer } from './core/visualizer';
-
-// Your search results from any search API
-const searchResults = [
-  { title: '...', url: '...', snippet: '...', source: '...' },
-  // ... more results
-];
-
-const orchestrator = new PRISMOrchestrator({ depth: '${options.depth}' });
-const report = await orchestrator.research('${options.subject}', searchResults);
-
-const visualizer = new PRISMVisualizer();
-console.log(visualizer.generate(report));
-`);
-
-    // Demo mode - show what the output would look like
-    console.log('\n═══════════════════════════════════════════════════════════════════════════════');
-    console.log('                           DEMO OUTPUT PREVIEW');
-    console.log('═══════════════════════════════════════════════════════════════════════════════\n');
-
-    // Create a demo orchestrator and visualizer
+    // Create orchestrator and run analysis
     const orchestrator = new PRISMOrchestrator({ depth: options.depth });
     const visualizer = new PRISMVisualizer();
 
-    // Create demo search results
-    const demoResults: SearchResult[] = [
-      {
-        title: `${options.subject} - Wikipedia`,
-        url: 'https://en.wikipedia.org/wiki/' + options.subject.replace(/\s+/g, '_'),
-        snippet: `${options.subject} is a notable public figure. Born in [location], they have been involved in various political and social activities.`,
-        source: 'Wikipedia'
-      }
-    ];
-
     try {
-      const report = await orchestrator.research(options.subject, demoResults);
+      console.log(`\n🔍 PRISM: Initiating research on "${options.subject}"...\n`);
+
+      const report = await orchestrator.research(options.subject, searchResults);
+
+      console.log(`\n════════════════════════════════════════════════════════════════════════════════`);
+      console.log(`                         INTELLIGENCE REPORT`);
+      console.log(`════════════════════════════════════════════════════════════════════════════════\n`);
 
       if (options.output === 'json') {
         console.log(visualizer.exportJSON(report));
       } else if (options.output === 'mermaid') {
+        console.log('\n════════════════════════════════════════════════════════════════════════════════');
+        console.log('                         RELATIONSHIP GRAPH');
+        console.log('════════════════════════════════════════════════════════════════════════════════\n');
         console.log('```mermaid');
         console.log(visualizer.generateMermaid(report));
         console.log('```');
       } else {
         console.log(visualizer.generate(report));
+
+        // Also output relationship graph
+        console.log('\n════════════════════════════════════════════════════════════════════════════════');
+        console.log('                         RELATIONSHIP GRAPH');
+        console.log('════════════════════════════════════════════════════════════════════════════════\n');
+        console.log('```mermaid');
+        console.log(visualizer.generateMermaid(report));
+        console.log('```');
+
+        // JSON export
+        console.log('\n════════════════════════════════════════════════════════════════════════════════');
+        console.log('                         JSON EXPORT');
+        console.log('════════════════════════════════════════════════════════════════════════════════\n');
+        console.log(visualizer.exportJSON(report).substring(0, 3000) + '\n\n... [truncated] ...');
       }
+
     } catch (error) {
-      console.error('Error during research:', error);
+      console.error('❌ Error during research:', error);
+      process.exit(1);
     }
   }
 }

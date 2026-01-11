@@ -16,7 +16,6 @@
     "ultimate": "npx ts-node src/deep/ultimate-research.ts",
     "pahlavi": "npx ts-node src/deep/reza-pahlavi-research.ts",
     "prism": "npx ts-node src/prism/cli.ts",
-    "pbd": "npx ts-node src/prism/research/patrick-bet-david.ts",
     "lint": "eslint src/**/*.ts",
     "clean": "rm -rf dist"
   },
