@@ -138,6 +138,74 @@ export interface PersonProfile {
   controversies: Controversy[];
   timeline: TimelineEvent[];
   oppositionMap?: OppositionMap;
+  politicalAffiliation?: PoliticalAffiliation;
+}
+
+// ============================================================================
+// POLITICAL AFFILIATION
+// ============================================================================
+
+export interface PoliticalAffiliation {
+  primaryParty: PartyAffiliation | null;
+  secondaryParties: PartyAffiliation[];
+  ideology: IdeologyProfile;
+  votingRecord?: VotingPattern[];
+  endorsements: PoliticalEndorsement[];
+  donations: PoliticalDonation[];
+  overallConfidence: number; // 0-100
+}
+
+export interface PartyAffiliation {
+  partyName: string;
+  country: string;
+  affiliation: 'MEMBER' | 'SUPPORTER' | 'DONOR' | 'ENDORSED_BY' | 'ALIGNED' | 'FORMER_MEMBER';
+  startDate?: string;
+  endDate?: string;
+  current: boolean;
+  confidence: number; // 0-100 percentage
+  evidenceCount: number;
+  evidenceSummary: string[];
+  sources: string[];
+}
+
+export interface IdeologyProfile {
+  primaryLabel: string; // e.g., "Conservative", "Liberal", "Libertarian"
+  confidence: number; // 0-100
+  economicAxis: number; // -100 (left/socialist) to +100 (right/capitalist)
+  socialAxis: number; // -100 (progressive) to +100 (traditional)
+  authoritarianAxis: number; // -100 (libertarian) to +100 (authoritarian)
+  labels: IdeologyLabel[];
+}
+
+export interface IdeologyLabel {
+  label: string;
+  confidence: number;
+  evidence: string[];
+}
+
+export interface VotingPattern {
+  election: string;
+  date: string;
+  party: string;
+  candidate?: string;
+  source: string;
+}
+
+export interface PoliticalEndorsement {
+  endorsed: string; // Who they endorsed
+  endorsedBy?: string; // Who endorsed them
+  party: string;
+  date: string;
+  type: 'GAVE' | 'RECEIVED';
+  source: string;
+}
+
+export interface PoliticalDonation {
+  recipient: string;
+  party: string;
+  amount?: string;
+  date: string;
+  source: string;
 }
 
 export interface Biography {

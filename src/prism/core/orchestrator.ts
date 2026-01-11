@@ -93,6 +93,10 @@ export class PRISMOrchestrator {
     console.log('🏛️ Phase 3: Analyzing political positions and foreign relations...');
     const politicalResults = this.extractPolitical(searchResults, subject);
 
+    // Phase 3b: Political Affiliation Detection
+    console.log('🗳️ Phase 3b: Detecting political party affiliation...');
+    const politicalAffiliation = this.politicalAgent.parsePoliticalAffiliation(searchResults, subject);
+
     // Phase 4: Funding & Media
     if (this.config.includeFunding) {
       console.log('💰 Phase 4: Investigating funding and media presence...');
@@ -108,7 +112,7 @@ export class PRISMOrchestrator {
     const metrics = this.calculateMetrics();
 
     // Build final profile
-    const profile = this.buildProfile(subject, bioResults, networkResults, politicalResults, timeline);
+    const profile = this.buildProfile(subject, bioResults, networkResults, politicalResults, timeline, politicalAffiliation);
 
     // Generate report
     const report: ResearchReport = {
@@ -529,7 +533,8 @@ export class PRISMOrchestrator {
     bioResults: any,
     networkResults: any,
     politicalResults: any,
-    timeline: TimelineEvent[]
+    timeline: TimelineEvent[],
+    politicalAffiliation?: any
   ): PersonProfile {
     const subjectEntity = this.entities.get(`person_${subject.toLowerCase().replace(/\s+/g, '_')}`)!;
 
@@ -582,7 +587,8 @@ export class PRISMOrchestrator {
         neutral: [],
         coalitions: networkResults.coalitions || [],
         ideologicalSpectrum: []
-      } : undefined
+      } : undefined,
+      politicalAffiliation: politicalAffiliation || undefined
     };
   }
 

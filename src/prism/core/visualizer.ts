@@ -15,7 +15,8 @@ import {
   Entity,
   Relationship,
   NetworkMetrics,
-  TimelineEvent
+  TimelineEvent,
+  PoliticalAffiliation
 } from './types';
 
 export class PRISMVisualizer {
@@ -27,6 +28,7 @@ export class PRISMVisualizer {
 
     output += this.generateHeader();
     output += this.generateSubjectProfile(report.profile);
+    output += this.generatePoliticalAffiliation(report.profile.politicalAffiliation);
     output += this.generateNetworkMetrics(report.metrics, report.graph.entities.length, report.graph.relationships.length);
     output += this.generateFamilyNetwork(report.profile);
     output += this.generateOrganizations(report.profile);
@@ -92,6 +94,151 @@ export class PRISMVisualizer {
 ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
 
 `;
+  }
+
+  /**
+   * Generate political affiliation section
+   */
+  private generatePoliticalAffiliation(affiliation?: PoliticalAffiliation): string {
+    if (!affiliation) {
+      return '';
+    }
+
+    let output = `
+┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+┃                                    POLITICAL AFFILIATION ANALYSIS                                               ┃
+┣━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┫
+┃                                                                                                                 ┃
+`;
+
+    // Primary Party
+    if (affiliation.primaryParty) {
+      const p = affiliation.primaryParty;
+      const confBar = this.generateConfidenceBar(p.confidence);
+      output += `┃   🗳️  PRIMARY PARTY AFFILIATION                                                                              ┃
+┃   ┌─────────────────────────────────────────────────────────────────────────────────────────────────────┐     ┃
+┃   │  Party:       ${p.partyName.padEnd(78)}│     ┃
+┃   │  Country:     ${p.country.padEnd(78)}│     ┃
+┃   │  Status:      ${p.affiliation.padEnd(78)}│     ┃
+┃   │  Confidence:  ${confBar}  ${p.confidence.toString().padStart(3)}%                                            │     ┃
+┃   │  Evidence:    ${p.evidenceCount.toString().padEnd(3)} mentions across ${p.sources.length.toString().padEnd(2)} sources                                               │     ┃
+┃   └─────────────────────────────────────────────────────────────────────────────────────────────────────┘     ┃
+┃                                                                                                                 ┃
+`;
+
+      // Evidence summary
+      if (p.evidenceSummary.length > 0) {
+        output += `┃   Evidence Snippets:                                                                                        ┃\n`;
+        for (const ev of p.evidenceSummary.slice(0, 2)) {
+          const cleaned = ev.replace(/[\n\r]/g, ' ').substring(0, 90);
+          output += `┃     • "${cleaned}"  ┃\n`;
+        }
+        output += `┃                                                                                                                 ┃\n`;
+      }
+    } else {
+      output += `┃   🗳️  PRIMARY PARTY: Unable to determine with confidence                                                       ┃
+┃                                                                                                                 ┃
+`;
+    }
+
+    // Secondary affiliations
+    if (affiliation.secondaryParties.length > 0) {
+      output += `┃   📊 SECONDARY AFFILIATIONS                                                                                   ┃\n`;
+      for (const p of affiliation.secondaryParties.slice(0, 3)) {
+        const miniBar = this.generateMiniBar(p.confidence);
+        output += `┃     ${miniBar} ${p.partyName.padEnd(30)} (${p.country}) - ${p.confidence}% confidence               ┃\n`;
+      }
+      output += `┃                                                                                                                 ┃\n`;
+    }
+
+    // Ideology Profile
+    output += `┃   🧭 IDEOLOGY PROFILE                                                                                         ┃
+┃   ┌─────────────────────────────────────────────────────────────────────────────────────────────────────┐     ┃
+┃   │  Primary:     ${affiliation.ideology.primaryLabel.padEnd(30)} ${this.generateConfidenceBar(affiliation.ideology.confidence)}  ${affiliation.ideology.confidence.toString().padStart(3)}%  │     ┃
+┃   │                                                                                                     │     ┃
+┃   │  Economic:    ${this.generateAxisBar(affiliation.ideology.economicAxis)}   ${this.formatAxisValue(affiliation.ideology.economicAxis)}  │     ┃
+┃   │               Left ◄─────────────────────────┼─────────────────────────► Right                      │     ┃
+┃   │                                                                                                     │     ┃
+┃   │  Social:      ${this.generateAxisBar(affiliation.ideology.socialAxis)}   ${this.formatAxisValue(affiliation.ideology.socialAxis)}  │     ┃
+┃   │               Progressive ◄──────────────────┼──────────────────► Traditional                       │     ┃
+┃   │                                                                                                     │     ┃
+┃   │  Authority:   ${this.generateAxisBar(affiliation.ideology.authoritarianAxis)}   ${this.formatAxisValue(affiliation.ideology.authoritarianAxis)}  │     ┃
+┃   │               Libertarian ◄──────────────────┼──────────────────► Authoritarian                     │     ┃
+┃   └─────────────────────────────────────────────────────────────────────────────────────────────────────┘     ┃
+┃                                                                                                                 ┃
+`;
+
+    // Ideology Labels
+    if (affiliation.ideology.labels.length > 0) {
+      output += `┃   📌 DETECTED IDEOLOGICAL SIGNALS                                                                             ┃\n`;
+      for (const label of affiliation.ideology.labels.slice(0, 5)) {
+        const bar = this.generateMiniBar(label.confidence);
+        output += `┃     ${bar} ${label.label.padEnd(25)} ${label.confidence}%                                                ┃\n`;
+      }
+      output += `┃                                                                                                                 ┃\n`;
+    }
+
+    // Endorsements
+    if (affiliation.endorsements.length > 0) {
+      output += `┃   🤝 POLITICAL ENDORSEMENTS                                                                                   ┃\n`;
+      for (const e of affiliation.endorsements.slice(0, 4)) {
+        output += `┃     • ${e.type === 'GAVE' ? 'Endorsed' : 'Endorsed by'}: ${e.endorsed.padEnd(30)} (${e.party})                        ┃\n`;
+      }
+      output += `┃                                                                                                                 ┃\n`;
+    }
+
+    // Overall Confidence
+    const overallBar = this.generateConfidenceBar(affiliation.overallConfidence);
+    output += `┃   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━   ┃
+┃   OVERALL AFFILIATION CONFIDENCE: ${overallBar}  ${affiliation.overallConfidence.toString().padStart(3)}%                                             ┃
+┃   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━   ┃
+┃                                                                                                                 ┃
+┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
+
+`;
+
+    return output;
+  }
+
+  /**
+   * Generate confidence bar visualization
+   */
+  private generateConfidenceBar(confidence: number): string {
+    const filled = Math.round(confidence / 5); // 20 chars max for 100%
+    const empty = 20 - filled;
+    return `[${'█'.repeat(filled)}${'░'.repeat(empty)}]`;
+  }
+
+  /**
+   * Generate mini bar for lists
+   */
+  private generateMiniBar(confidence: number): string {
+    const filled = Math.round(confidence / 10); // 10 chars max
+    return '▓'.repeat(filled) + '░'.repeat(10 - filled);
+  }
+
+  /**
+   * Generate axis bar (-100 to +100)
+   */
+  private generateAxisBar(value: number): string {
+    // Convert -100 to +100 to 0-20 position
+    const pos = Math.round((value + 100) / 10); // 0-20
+    const bar = '─'.repeat(20);
+    const chars = bar.split('');
+    chars[10] = '┼'; // Center marker
+    chars[Math.min(19, Math.max(0, pos))] = '●'; // Position marker
+    return chars.join('');
+  }
+
+  /**
+   * Format axis value with label
+   */
+  private formatAxisValue(value: number): string {
+    if (value > 50) return `Right (+${value})`.padEnd(15);
+    if (value < -50) return `Left (${value})`.padEnd(15);
+    if (value > 20) return `Center-Right (+${value})`.padEnd(15);
+    if (value < -20) return `Center-Left (${value})`.padEnd(15);
+    return `Center (${value})`.padEnd(15);
   }
 
   /**
