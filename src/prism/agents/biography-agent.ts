@@ -126,33 +126,56 @@ export class BiographyAgent extends BaseAgent {
     const members: FamilyMember[] = [];
     const seen = new Set<string>();
 
+    // Enhanced patterns to capture common name formats
     const relationshipPatterns = [
-      { pattern: /(?:his|her)\s+(?:late\s+)?father[,\s]+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)+)/gi, relationship: 'Father' },
-      { pattern: /(?:his|her)\s+(?:late\s+)?mother[,\s]+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)+)/gi, relationship: 'Mother' },
-      { pattern: /(?:his|her)\s+wife[,\s]+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)+)/gi, relationship: 'Wife' },
-      { pattern: /(?:his|her)\s+husband[,\s]+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)+)/gi, relationship: 'Husband' },
-      { pattern: /(?:his|her)\s+(?:eldest\s+)?son[,\s]+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)+)/gi, relationship: 'Son' },
-      { pattern: /(?:his|her)\s+(?:eldest\s+)?daughter[,\s]+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)+)/gi, relationship: 'Daughter' },
-      { pattern: /(?:his|her)\s+(?:younger\s+|elder\s+)?brother[,\s]+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)+)/gi, relationship: 'Brother' },
-      { pattern: /(?:his|her)\s+(?:younger\s+|elder\s+)?sister[,\s]+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)+)/gi, relationship: 'Sister' },
-      { pattern: /son\s+of\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)+)/gi, relationship: 'Parent' },
-      { pattern: /daughter\s+of\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)+)/gi, relationship: 'Parent' }
+      // Direct patterns: "his father, Name" or "his father Name"
+      { pattern: /(?:his|her)\s+(?:late\s+)?father[,\s]+([A-Z][a-z]+(?:\s+[A-Z][a-z'-]+){0,3})/gi, relationship: 'Father' },
+      { pattern: /(?:his|her)\s+(?:late\s+)?mother[,\s]+([A-Z][a-z]+(?:\s+[A-Z][a-z'-]+){0,3})/gi, relationship: 'Mother' },
+      { pattern: /(?:his|her)\s+wife[,\s]+([A-Z][a-z]+(?:\s+[A-Z][a-z'-]+){0,3})/gi, relationship: 'Wife' },
+      { pattern: /wife\s+([A-Z][a-z]+(?:\s+[A-Z][a-z'-]+){0,3})/gi, relationship: 'Wife' },
+      { pattern: /married\s+(?:to\s+)?([A-Z][a-z]+(?:\s+[A-Z][a-z'-]+){0,3})/gi, relationship: 'Spouse' },
+      { pattern: /(?:his|her)\s+husband[,\s]+([A-Z][a-z]+(?:\s+[A-Z][a-z'-]+){0,3})/gi, relationship: 'Husband' },
+      { pattern: /(?:his|her)\s+(?:eldest\s+)?son[,\s]+([A-Z][a-z]+(?:\s+[A-Z][a-z'-]+){0,3})/gi, relationship: 'Son' },
+      { pattern: /(?:his|her)\s+(?:eldest\s+)?daughter[,\s]+([A-Z][a-z]+(?:\s+[A-Z][a-z'-]+){0,3})/gi, relationship: 'Daughter' },
+      { pattern: /(?:his|her)\s+(?:younger\s+|elder\s+)?brother[,\s]+([A-Z][a-z]+(?:\s+[A-Z][a-z'-]+){0,3})/gi, relationship: 'Brother' },
+      { pattern: /(?:his|her)\s+(?:younger\s+|elder\s+)?sister[,\s]+([A-Z][a-z]+(?:\s+[A-Z][a-z'-]+){0,3})/gi, relationship: 'Sister' },
+      { pattern: /son\s+of\s+([A-Z][a-z]+(?:\s+[A-Z][a-z'-]+){0,3})/gi, relationship: 'Parent' },
+      { pattern: /daughter\s+of\s+([A-Z][a-z]+(?:\s+[A-Z][a-z'-]+){0,3})/gi, relationship: 'Parent' },
+      // Child patterns: "children: Name, Name, Name"
+      { pattern: /children[:\s]+(?:include\s+)?([A-Z][a-z]+(?:[-\s][A-Z][a-z]+)*)/gi, relationship: 'Child' },
+      { pattern: /(?:\d+\s+)?children[:\s]+([A-Z][a-z'"]+(?:\s+[A-Z][a-z'-]+)*)/gi, relationship: 'Child' },
+      // Name is the [relation]: "Jennifer is his wife"
+      { pattern: /([A-Z][a-z]+(?:\s+[A-Z][a-z'-]+){0,3})\s+is\s+(?:his|her)\s+wife/gi, relationship: 'Wife' },
+      { pattern: /([A-Z][a-z]+(?:\s+[A-Z][a-z'-]+){0,3})\s+is\s+(?:his|her)\s+husband/gi, relationship: 'Husband' },
     ];
 
     for (const result of results) {
       for (const { pattern, relationship } of relationshipPatterns) {
         let match;
+        // Reset lastIndex for global patterns
+        pattern.lastIndex = 0;
         while ((match = pattern.exec(result.snippet)) !== null) {
-          const name = match[1].trim();
-          if (!seen.has(name) && name !== subject) {
-            seen.add(name);
+          let name = match[1].trim();
+
+          // Clean up the name - remove trailing words that aren't part of names
+          name = this.cleanupName(name);
+
+          // Skip if empty or same as subject
+          if (!name || name.length < 2) continue;
+          if (this.normalizeForComparison(name) === this.normalizeForComparison(subject)) continue;
+
+          // Skip common false positives
+          if (/^(the|and|or|is|was|has|have|his|her|their)$/i.test(name)) continue;
+
+          if (!seen.has(name.toLowerCase())) {
+            seen.add(name.toLowerCase());
 
             const isDeceased = result.snippet.toLowerCase().includes(`late ${name.toLowerCase()}`) ||
                                result.snippet.toLowerCase().includes(`${name.toLowerCase()} died`) ||
                                result.snippet.toLowerCase().includes(`death of ${name.toLowerCase()}`);
 
             members.push({
-              entityId: `person_${name.toLowerCase().replace(/\s+/g, '_')}`,
+              entityId: `person_${name.toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '')}`,
               name,
               relationship,
               status: isDeceased ? 'DECEASED' : 'UNKNOWN',
@@ -164,6 +187,37 @@ export class BiographyAgent extends BaseAgent {
     }
 
     return members;
+  }
+
+  /**
+   * Clean up extracted name
+   */
+  private cleanupName(name: string): string {
+    // Remove common trailing non-name words
+    const stopWords = ['and', 'is', 'was', 'has', 'have', 'the', 'a', 'an', 'who', 'which', 'that',
+                        'Jr', 'Sr', 'Jr.', 'Sr.', 'II', 'III', 'IV', 'V'];
+
+    let parts = name.split(/\s+/);
+
+    // Keep names that look like proper nouns (start with capital)
+    parts = parts.filter((word, idx) => {
+      // Keep first word always if it's capitalized
+      if (idx === 0 && /^[A-Z]/.test(word)) return true;
+      // Keep subsequent words if capitalized and not stop words
+      if (/^[A-Z]/.test(word) && !stopWords.includes(word)) return true;
+      // Keep Jr, Sr suffixes
+      if (['Jr', 'Sr', 'Jr.', 'Sr.', 'II', 'III', 'IV', 'V'].includes(word)) return true;
+      return false;
+    });
+
+    return parts.join(' ');
+  }
+
+  /**
+   * Normalize name for comparison
+   */
+  private normalizeForComparison(name: string): string {
+    return name.toLowerCase().replace(/[^a-z]/g, '');
   }
 
   /**
