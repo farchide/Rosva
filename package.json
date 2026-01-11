@@ -1,7 +1,7 @@
 {
-  "name": "rosva",
-  "version": "0.1.0",
-  "description": "Deep Agentic Person Research System",
+  "name": "prism",
+  "version": "1.0.0",
+  "description": "PRISM - Open-Source Truth & Accountability Engine for Narrative and Influence Analysis",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "scripts": {
@@ -15,15 +15,17 @@
     "deep": "npx ts-node src/deep/research.ts",
     "ultimate": "npx ts-node src/deep/ultimate-research.ts",
     "pahlavi": "npx ts-node src/deep/reza-pahlavi-research.ts",
+    "prism": "npx ts-node src/prism/cli.ts",
     "lint": "eslint src/**/*.ts",
     "clean": "rm -rf dist"
   },
   "keywords": [
     "osint",
+    "intelligence",
     "research",
-    "vector-database",
-    "multi-agent",
-    "e2b"
+    "narrative-analysis",
+    "influence-mapping",
+    "graph-analysis"
   ],
   "author": "",
   "license": "MIT",
