@@ -16,7 +16,8 @@ import {
   Relationship,
   NetworkMetrics,
   TimelineEvent,
-  PoliticalAffiliation
+  PoliticalAffiliation,
+  SocialMediaAnalysis
 } from './types';
 
 export class PRISMVisualizer {
@@ -29,6 +30,7 @@ export class PRISMVisualizer {
     output += this.generateHeader();
     output += this.generateSubjectProfile(report.profile);
     output += this.generatePoliticalAffiliation(report.profile.politicalAffiliation);
+    output += this.generateSocialMediaAnalysis(report.profile.mediaPresence.socialMediaAnalysis);
     output += this.generateNetworkMetrics(report.metrics, report.graph.entities.length, report.graph.relationships.length);
     output += this.generateFamilyNetwork(report.profile);
     output += this.generateOrganizations(report.profile);
@@ -227,6 +229,168 @@ export class PRISMVisualizer {
 `;
 
     return output;
+  }
+
+  /**
+   * Generate social media analysis section
+   */
+  private generateSocialMediaAnalysis(analysis?: SocialMediaAnalysis): string {
+    if (!analysis) {
+      return '';
+    }
+
+    let output = `
+┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+┃                                      SOCIAL MEDIA ANALYSIS                                                        ┃
+┣━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┫
+┃                                                                                                                 ┃
+`;
+
+    // Overall Influence Score
+    const influenceBar = this.generateConfidenceBar(analysis.overallInfluence);
+    output += `┃   📊 OVERALL SOCIAL MEDIA INFLUENCE                                                                             ┃
+┃   ┌─────────────────────────────────────────────────────────────────────────────────────────────────────┐     ┃
+┃   │  Influence Score: ${influenceBar}  ${analysis.overallInfluence.toString().padStart(3)}%                                            │     ┃
+┃   │  Primary Platform: ${(analysis.primaryPlatform || 'Not detected').padEnd(71)}│     ┃
+┃   │  Platforms Found: ${analysis.profiles.length.toString().padEnd(72)}│     ┃
+┃   └─────────────────────────────────────────────────────────────────────────────────────────────────────┘     ┃
+┃                                                                                                                 ┃
+`;
+
+    // Social Media Profiles
+    if (analysis.profiles.length > 0) {
+      output += `┃   📱 DETECTED SOCIAL MEDIA PROFILES                                                                             ┃\n`;
+      for (const profile of analysis.profiles.slice(0, 6)) {
+        const platformIcon = this.getPlatformIcon(profile.platform);
+        const verifiedIcon = profile.verified ? '✓' : ' ';
+        const followers = this.formatFollowerCount(profile.followerCount);
+        output += `┃     ${platformIcon} ${profile.platform.padEnd(12)} @${profile.username.padEnd(20)} ${verifiedIcon} ${followers.padEnd(15)} ${profile.url.substring(0, 40)}\n`;
+      }
+      output += `┃                                                                                                                 ┃\n`;
+    }
+
+    // X (Twitter) Analysis
+    if (analysis.xAnalysis) {
+      const x = analysis.xAnalysis;
+      output += `┃   🐦 X (TWITTER) ANALYSIS                                                                                       ┃
+┃   ┌─────────────────────────────────────────────────────────────────────────────────────────────────────┐     ┃
+┃   │  Profile Found: ${(x.profileFound ? 'Yes' : 'Analysis from search results').padEnd(76)}│     ┃
+┃   │  Influence Score: ${this.generateMiniBar(x.influenceScore)} ${x.influenceScore.toString().padStart(3)}%                                              │     ┃
+┃   │  Verification: ${(x.verified ? 'Verified Account' : 'Not Verified').padEnd(77)}│     ┃
+┃   └─────────────────────────────────────────────────────────────────────────────────────────────────────┘     ┃
+┃                                                                                                                 ┃
+`;
+
+      // Notable Connections
+      if (x.notableConnections.length > 0) {
+        output += `┃   🔗 NOTABLE X CONNECTIONS                                                                                      ┃\n`;
+        for (const conn of x.notableConnections.slice(0, 5)) {
+          const verifiedMark = conn.verified ? '✓' : ' ';
+          output += `┃     ${verifiedMark} @${conn.username.padEnd(20)} │ ${conn.displayName.padEnd(25)} │ ${conn.category.padEnd(20)}\n`;
+        }
+        output += `┃                                                                                                                 ┃\n`;
+      }
+
+      // Political Indicators from X
+      if (x.politicalIndicators.topPoliticalHashtags.length > 0) {
+        output += `┃   🏛️ X POLITICAL INDICATORS                                                                                     ┃\n`;
+        for (const hashtag of x.politicalIndicators.topPoliticalHashtags.slice(0, 4)) {
+          const bar = this.generateMiniBar(Math.min(100, hashtag.count * 20));
+          output += `┃     ${bar} ${hashtag.tag.padEnd(25)} (used ${hashtag.count} times)                                          ┃\n`;
+        }
+        if (x.politicalIndicators.politicalTopics.length > 0) {
+          output += `┃     Topics: ${x.politicalIndicators.politicalTopics.slice(0, 5).join(', ').substring(0, 80).padEnd(85)}\n`;
+        }
+        output += `┃                                                                                                                 ┃\n`;
+      }
+
+      // Iran Activity from X
+      if (x.iranActivity.stance !== 'UNKNOWN' || x.iranActivity.iranRelatedTweets > 0) {
+        output += `┃   🇮🇷 IRAN-RELATED X ACTIVITY                                                                                    ┃
+┃   ┌─────────────────────────────────────────────────────────────────────────────────────────────────────┐     ┃\n`;
+
+        const stanceLabel = x.iranActivity.stance === 'PRO_OPPOSITION' ? 'Pro-Opposition' :
+                           x.iranActivity.stance === 'PRO_REGIME' ? 'Pro-Regime' :
+                           x.iranActivity.stance === 'NEUTRAL' ? 'Neutral' : 'Unknown';
+        const stanceBar = this.generateConfidenceBar(x.iranActivity.confidence);
+
+        output += `┃   │  Stance: ${stanceLabel.padEnd(20)} Confidence: ${stanceBar}  ${x.iranActivity.confidence.toString().padStart(3)}%  │     ┃
+┃   │  Iran-Related Activity: ${x.iranActivity.iranRelatedTweets.toString().padEnd(66)}│     ┃\n`;
+
+        if (x.iranActivity.oppositionHashtags.length > 0) {
+          output += `┃   │  Opposition Hashtags: ${x.iranActivity.oppositionHashtags.slice(0, 4).join(', ').substring(0, 68).padEnd(68)}│     ┃\n`;
+        }
+        if (x.iranActivity.oppositionMentions.length > 0) {
+          output += `┃   │  Opposition Mentions: ${x.iranActivity.oppositionMentions.slice(0, 4).join(', ').substring(0, 68).padEnd(68)}│     ┃\n`;
+        }
+        if (x.iranActivity.evidence.length > 0) {
+          output += `┃   │  Evidence: ${x.iranActivity.evidence[0].substring(0, 80).padEnd(81)}│     ┃\n`;
+        }
+        output += `┃   └─────────────────────────────────────────────────────────────────────────────────────────────────────┘     ┃
+┃                                                                                                                 ┃\n`;
+      }
+    }
+
+    // Overall Political Summary from Social Media
+    if (analysis.politicalSummary.primaryLeaning !== 'Unknown') {
+      output += `┃   🗳️ SOCIAL MEDIA POLITICAL SUMMARY                                                                            ┃
+┃     Primary Leaning: ${analysis.politicalSummary.primaryLeaning.padEnd(30)} Confidence: ${analysis.politicalSummary.confidence}%                       ┃\n`;
+      if (analysis.politicalSummary.evidence.length > 0) {
+        for (const ev of analysis.politicalSummary.evidence.slice(0, 2)) {
+          output += `┃     • ${ev.substring(0, 95).padEnd(95)}\n`;
+        }
+      }
+      output += `┃                                                                                                                 ┃\n`;
+    }
+
+    // Iran Stance Summary from Social Media
+    if (analysis.iranStance.stance !== 'Unknown') {
+      output += `┃   🇮🇷 SOCIAL MEDIA IRAN STANCE                                                                                   ┃
+┃     Stance: ${analysis.iranStance.stance.padEnd(30)} Confidence: ${analysis.iranStance.confidence}%                                  ┃\n`;
+      if (analysis.iranStance.evidence.length > 0) {
+        for (const ev of analysis.iranStance.evidence.slice(0, 2)) {
+          output += `┃     • ${ev.substring(0, 95).padEnd(95)}\n`;
+        }
+      }
+      output += `┃                                                                                                                 ┃\n`;
+    }
+
+    output += `┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
+
+`;
+
+    return output;
+  }
+
+  /**
+   * Get platform icon
+   */
+  private getPlatformIcon(platform: string): string {
+    const icons: Record<string, string> = {
+      'X': '🐦',
+      'INSTAGRAM': '📷',
+      'YOUTUBE': '📺',
+      'TIKTOK': '🎵',
+      'FACEBOOK': '👤',
+      'LINKEDIN': '💼'
+    };
+    return icons[platform] || '🌐';
+  }
+
+  /**
+   * Format follower count
+   */
+  private formatFollowerCount(count: number): string {
+    if (count >= 1000000) {
+      return (count / 1000000).toFixed(1) + 'M followers';
+    }
+    if (count >= 1000) {
+      return (count / 1000).toFixed(1) + 'K followers';
+    }
+    if (count > 0) {
+      return count + ' followers';
+    }
+    return 'Unknown';
   }
 
   /**

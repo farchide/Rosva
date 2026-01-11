@@ -9,6 +9,7 @@ import { BiographyAgent } from '../agents/biography-agent';
 import { NetworkAgent } from '../agents/network-agent';
 import { PoliticalAgent } from '../agents/political-agent';
 import { FundingMediaAgent } from '../agents/funding-agent';
+import { SocialMediaAgent, SocialMediaResult } from '../agents/social-media-agent';
 import {
   PersonProfile,
   Entity,
@@ -16,7 +17,8 @@ import {
   Source,
   ResearchReport,
   NetworkMetrics,
-  TimelineEvent
+  TimelineEvent,
+  SocialMediaAnalysis
 } from './types';
 
 export interface SearchProvider {
@@ -46,6 +48,7 @@ export class PRISMOrchestrator {
   private networkAgent: NetworkAgent;
   private politicalAgent: PoliticalAgent;
   private fundingMediaAgent: FundingMediaAgent;
+  private socialMediaAgent: SocialMediaAgent;
 
   private entities: Map<string, Entity> = new Map();
   private relationships: Map<string, Relationship> = new Map();
@@ -66,6 +69,7 @@ export class PRISMOrchestrator {
     this.networkAgent = new NetworkAgent();
     this.politicalAgent = new PoliticalAgent();
     this.fundingMediaAgent = new FundingMediaAgent();
+    this.socialMediaAgent = new SocialMediaAgent();
   }
 
   /**
@@ -103,16 +107,20 @@ export class PRISMOrchestrator {
       const fundingResults = this.extractFundingMedia(searchResults, subject);
     }
 
-    // Phase 5: Build Timeline
-    console.log('📅 Phase 5: Constructing chronological timeline...');
+    // Phase 5: Social Media Analysis
+    console.log('📱 Phase 5: Analyzing social media presence (X, Instagram, YouTube)...');
+    const socialMediaResults = this.socialMediaAgent.analyzeFromSearchResults(searchResults, subject);
+
+    // Phase 6: Build Timeline
+    console.log('📅 Phase 6: Constructing chronological timeline...');
     const timeline = this.buildTimeline(searchResults, subject);
 
-    // Phase 6: Calculate Metrics
-    console.log('📊 Phase 6: Computing network metrics...');
+    // Phase 7: Calculate Metrics
+    console.log('📊 Phase 7: Computing network metrics...');
     const metrics = this.calculateMetrics();
 
     // Build final profile
-    const profile = this.buildProfile(subject, bioResults, networkResults, politicalResults, timeline, politicalAffiliation);
+    const profile = this.buildProfile(subject, bioResults, networkResults, politicalResults, timeline, politicalAffiliation, socialMediaResults);
 
     // Generate report
     const report: ResearchReport = {
@@ -534,9 +542,60 @@ export class PRISMOrchestrator {
     networkResults: any,
     politicalResults: any,
     timeline: TimelineEvent[],
-    politicalAffiliation?: any
+    politicalAffiliation?: any,
+    socialMediaResults?: SocialMediaResult
   ): PersonProfile {
     const subjectEntity = this.entities.get(`person_${subject.toLowerCase().replace(/\s+/g, '_')}`)!;
+
+    // Convert social media results to our type structure
+    const socialMediaAnalysis: SocialMediaAnalysis | undefined = socialMediaResults ? {
+      profiles: socialMediaResults.profiles.map(p => ({
+        platform: p.platform,
+        username: p.username,
+        displayName: p.displayName,
+        url: p.url,
+        verified: p.verified,
+        followerCount: p.followerCount,
+        followingCount: p.followingCount,
+        postCount: p.postCount,
+        bio: p.bio,
+        joinDate: p.joinDate
+      })),
+      primaryPlatform: socialMediaResults.primaryPlatform,
+      overallInfluence: socialMediaResults.overallInfluence,
+      xAnalysis: socialMediaResults.xAnalysis ? {
+        profileFound: !!socialMediaResults.xAnalysis.profile,
+        username: socialMediaResults.xAnalysis.profile?.username,
+        verified: socialMediaResults.xAnalysis.profile?.verified || false,
+        followerCount: socialMediaResults.xAnalysis.profile?.followerCount || 0,
+        influenceScore: socialMediaResults.xAnalysis.influence.influenceScore,
+        engagementRate: socialMediaResults.xAnalysis.engagement.engagementRate,
+        notableConnections: socialMediaResults.xAnalysis.notableConnections.map(c => ({
+          username: c.username,
+          displayName: c.displayName,
+          category: c.category || 'Unknown',
+          verified: c.verified
+        })),
+        politicalIndicators: {
+          detectedLeanings: socialMediaResults.xAnalysis.politicalIndicators.politicalHashtags.map(h => ({
+            leaning: h.leaning,
+            confidence: Math.min(100, h.count * 20)
+          })),
+          topPoliticalHashtags: socialMediaResults.xAnalysis.politicalIndicators.politicalHashtags.slice(0, 10),
+          politicalTopics: socialMediaResults.xAnalysis.politicalIndicators.politicalTopics
+        },
+        iranActivity: {
+          iranRelatedTweets: socialMediaResults.xAnalysis.iranRelatedActivity.iranRelatedTweets,
+          stance: socialMediaResults.xAnalysis.iranRelatedActivity.stance,
+          confidence: socialMediaResults.xAnalysis.iranRelatedActivity.confidence,
+          oppositionHashtags: socialMediaResults.xAnalysis.iranRelatedActivity.oppositionHashtags,
+          oppositionMentions: socialMediaResults.xAnalysis.iranRelatedActivity.oppositionMentions,
+          evidence: socialMediaResults.xAnalysis.iranRelatedActivity.evidence
+        }
+      } : null,
+      politicalSummary: socialMediaResults.politicalSummary,
+      iranStance: socialMediaResults.iranStance
+    } : undefined;
 
     return {
       entity: subjectEntity,
@@ -569,8 +628,16 @@ export class PRISMOrchestrator {
       positions: politicalResults.positions || [],
       foreignRelations: politicalResults.foreignRelations || [],
       mediaPresence: {
-        socialAccounts: [],
-        mediaAppearances: []
+        socialAccounts: socialMediaResults?.profiles.map(p => ({
+          platform: p.platform,
+          handle: p.username,
+          url: p.url,
+          followers: p.followerCount,
+          verified: p.verified,
+          active: true
+        })) || [],
+        mediaAppearances: [],
+        socialMediaAnalysis
       },
       funding: {
         knownSources: [],

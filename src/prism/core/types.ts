@@ -346,6 +346,75 @@ export interface MediaPresence {
   ownedMedia?: string[];
   amplificationNetwork?: AmplificationNode[];
   digitalCampaigns?: DigitalCampaign[];
+  socialMediaAnalysis?: SocialMediaAnalysis;
+}
+
+// ============================================================================
+// SOCIAL MEDIA ANALYSIS
+// ============================================================================
+
+export interface SocialMediaAnalysis {
+  profiles: SocialMediaProfile[];
+  primaryPlatform: string | null;
+  overallInfluence: number;
+  xAnalysis: XAnalysisSummary | null;
+  politicalSummary: {
+    primaryLeaning: string;
+    confidence: number;
+    evidence: string[];
+  };
+  iranStance: {
+    stance: string;
+    confidence: number;
+    evidence: string[];
+  };
+}
+
+export interface SocialMediaProfile {
+  platform: 'X' | 'INSTAGRAM' | 'YOUTUBE' | 'TIKTOK' | 'FACEBOOK' | 'LINKEDIN';
+  username: string;
+  displayName?: string;
+  url: string;
+  verified: boolean;
+  followerCount: number;
+  followingCount?: number;
+  postCount?: number;
+  bio?: string;
+  joinDate?: string;
+}
+
+export interface XAnalysisSummary {
+  profileFound: boolean;
+  username?: string;
+  verified: boolean;
+  followerCount: number;
+  influenceScore: number;
+  engagementRate: number;
+  notableConnections: XConnection[];
+  politicalIndicators: XPoliticalSummary;
+  iranActivity: XIranActivitySummary;
+}
+
+export interface XConnection {
+  username: string;
+  displayName: string;
+  category: string;
+  verified: boolean;
+}
+
+export interface XPoliticalSummary {
+  detectedLeanings: { leaning: string; confidence: number }[];
+  topPoliticalHashtags: { tag: string; count: number }[];
+  politicalTopics: string[];
+}
+
+export interface XIranActivitySummary {
+  iranRelatedTweets: number;
+  stance: 'PRO_OPPOSITION' | 'PRO_REGIME' | 'NEUTRAL' | 'UNKNOWN';
+  confidence: number;
+  oppositionHashtags: string[];
+  oppositionMentions: string[];
+  evidence: string[];
 }
 
 export interface SocialAccount {
