@@ -141,10 +141,39 @@ export class PRISMVisualizer {
 `;
     }
 
-    // Secondary affiliations
-    if (affiliation.secondaryParties.length > 0) {
-      output += `┃   📊 SECONDARY AFFILIATIONS                                                                                   ┃\n`;
-      for (const p of affiliation.secondaryParties.slice(0, 3)) {
+    // Iranian Opposition Connections (dedicated section)
+    const iranianParties = affiliation.secondaryParties.filter(p => p.country === 'Iran');
+    const otherSecondary = affiliation.secondaryParties.filter(p => p.country !== 'Iran');
+
+    // Check if primary party is also Iranian
+    const primaryIsIranian = affiliation.primaryParty?.country === 'Iran';
+
+    if (iranianParties.length > 0 || primaryIsIranian) {
+      output += `┃   🇮🇷 IRANIAN OPPOSITION CONNECTION                                                                           ┃
+┃   ┌─────────────────────────────────────────────────────────────────────────────────────────────────────┐     ┃\n`;
+
+      // If primary is Iranian, show it prominently
+      if (primaryIsIranian && affiliation.primaryParty) {
+        const p = affiliation.primaryParty;
+        const confBar = this.generateConfidenceBar(p.confidence);
+        output += `┃   │  PRIMARY: ${p.partyName.padEnd(65)}│     ┃
+┃   │  Confidence: ${confBar}  ${p.confidence.toString().padStart(3)}%                                        │     ┃\n`;
+      }
+
+      // Show Iranian secondary affiliations
+      for (const p of iranianParties) {
+        const miniBar = this.generateMiniBar(p.confidence);
+        output += `┃   │  ${miniBar} ${p.partyName.padEnd(50)} ${p.confidence}% confidence           │     ┃\n`;
+      }
+
+      output += `┃   └─────────────────────────────────────────────────────────────────────────────────────────────────────┘     ┃
+┃                                                                                                                 ┃\n`;
+    }
+
+    // Other Secondary affiliations (non-Iranian)
+    if (otherSecondary.length > 0) {
+      output += `┃   📊 OTHER AFFILIATIONS                                                                                       ┃\n`;
+      for (const p of otherSecondary.slice(0, 3)) {
         const miniBar = this.generateMiniBar(p.confidence);
         output += `┃     ${miniBar} ${p.partyName.padEnd(30)} (${p.country}) - ${p.confidence}% confidence               ┃\n`;
       }

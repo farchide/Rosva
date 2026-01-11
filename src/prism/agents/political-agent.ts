@@ -517,13 +517,23 @@ export class PoliticalAgent extends BaseAgent {
     }
 
     // Calculate primary party affiliation
-    const sortedParties = Array.from(partySignals.entries())
+    let sortedParties = Array.from(partySignals.entries())
       .map(([party, data]) => ({
         party,
         ...data,
         score: data.count * (1 + data.sources.length * 0.2) // Weight by source diversity
       }))
       .sort((a, b) => b.score - a.score);
+
+    // Filter out UK parties if there's strong US evidence (to avoid false positives)
+    const hasStrongUSEvidence = sortedParties.some(p =>
+      (p.party === 'Republican Party' || p.party === 'Democratic Party') && p.score > 5
+    );
+    if (hasStrongUSEvidence) {
+      sortedParties = sortedParties.filter(p =>
+        !p.party.includes('(UK)') || p.score > 10
+      );
+    }
 
     // Calculate confidence based on evidence strength
     const calculateConfidence = (count: number, sourceCount: number, totalResults: number): number => {

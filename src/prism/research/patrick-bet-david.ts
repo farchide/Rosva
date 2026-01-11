@@ -98,6 +98,29 @@ const searchResults: SearchResult[] = [
     date: "2022"
   },
 
+  // Iranian Opposition & Heritage
+  {
+    title: "Patrick Bet-David on Iran and Islamic Republic",
+    url: "https://valuetainment.com/iran-episode/",
+    snippet: "Patrick Bet-David frequently speaks about his opposition to the Islamic Republic regime. As someone who fled Iran as a child during the 1979 revolution, he advocates for regime change and a free Iran. He has interviewed Iranian opposition figures and supports the Woman Life Freedom movement.",
+    source: "Valuetainment",
+    date: "2023"
+  },
+  {
+    title: "PBD Podcast Iranian Diaspora Episodes",
+    url: "https://www.youtube.com/watch?v=iran-diaspora",
+    snippet: "Bet-David has used his platform to give voice to the Iranian diaspora and opposition. He supports secular democracy for Iran and has criticized the theocratic regime. His Assyrian Christian heritage connects him to persecuted minorities under the Islamic Republic.",
+    source: "YouTube",
+    date: "2023"
+  },
+  {
+    title: "Patrick Bet-David Anti-Regime Stance",
+    url: "https://twitter.com/patrickbetdavid/iran-protests",
+    snippet: "During the 2022 protests following Mahsa Amini's death, Patrick Bet-David voiced support for the Woman Life Freedom movement and called for an end to the Islamic Republic. He advocates for human rights in Iran and supports the Iranian people's fight for freedom.",
+    source: "Twitter/X",
+    date: "2022"
+  },
+
   // Political Views
   {
     title: "Patrick Bet-David Trump Support",
