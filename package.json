@@ -12,6 +12,7 @@
     "sandbox": "npx ts-node src/sandbox.ts",
     "research": "npx ts-node src/real-research.ts",
     "demo": "npx ts-node src/demo.ts",
+    "deep": "npx ts-node src/deep/research.ts",
     "lint": "eslint src/**/*.ts",
     "clean": "rm -rf dist"
   },
