@@ -333,17 +333,85 @@ export class PoliticalAgent extends BaseAgent {
       { party: 'Democratic Party', country: 'USA', weight: 2, keywords: ['democrat', 'dnc', 'biden supporter', 'biden', 'liberal democrat', 'blue state', 'progressive democrat', 'supports biden'] },
       { party: 'Libertarian Party', country: 'USA', weight: 1.5, keywords: ['libertarian party', 'libertarian candidate', 'ron paul'] },
       { party: 'Independent', country: 'USA', weight: 1, keywords: ['independent voter', 'no party affiliation', 'political independent', 'registered independent'] },
+
       // UK Parties - lower weight, require UK-specific keywords
       { party: 'Conservative Party (UK)', country: 'UK', weight: 1, keywords: ['tory', 'tories', 'conservative party uk', 'british conservative', 'uk parliament'] },
       { party: 'Labour Party', country: 'UK', weight: 1, keywords: ['labour party', 'labour mp', 'british labour', 'uk labour'] },
-      // Iranian Opposition
-      { party: 'Monarchist', country: 'Iran', weight: 1.5, keywords: ['pahlavi', 'monarchist', 'constitutionalist', 'shahist', 'crown prince'] },
-      { party: 'MEK/NCRI', country: 'Iran', weight: 1.5, keywords: ['mek', 'ncri', 'mujahedin', 'rajavi'] },
-      { party: 'Reformist', country: 'Iran', weight: 1, keywords: ['reformist', 'green movement', 'iranian reformist'] },
+
+      // ============================================================================
+      // IRANIAN POLITICAL SPECTRUM
+      // ============================================================================
+
+      // Iranian Opposition - Monarchist/Constitutionalist
+      { party: 'Constitutional Monarchist', country: 'Iran', weight: 2, keywords: [
+        'pahlavi', 'monarchist', 'constitutionalist', 'shahist', 'crown prince', 'reza pahlavi',
+        'constitutional monarchy', 'pahlavi dynasty', 'imperial iran', 'shah', 'shahanshah',
+        'national council of iran', 'phoenix project', 'iran revival', 'pahlavi foundation'
+      ]},
+
+      // Iranian Opposition - MEK/NCRI
+      { party: 'MEK/PMOI (Mujahedin-e Khalq)', country: 'Iran', weight: 2, keywords: [
+        'mek', 'pmoi', 'ncri', 'mujahedin', 'mojahedin', 'rajavi', 'maryam rajavi', 'massoud rajavi',
+        'national council of resistance', 'camp ashraf', 'camp liberty', 'albanian exile',
+        'people\'s mojahedin', 'mko', 'mujahedin-e khalq'
+      ]},
+
+      // Iranian Opposition - Secular Republican
+      { party: 'Secular Republican', country: 'Iran', weight: 1.5, keywords: [
+        'secular republic', 'iranian republic', 'democratic republic', 'secular democracy',
+        'separation of religion', 'laicism', 'secularist', 'post-islamic republic'
+      ]},
+
+      // Iranian Opposition - Federalist/Ethnic Rights
+      { party: 'Federalist/Ethnic Rights', country: 'Iran', weight: 1.5, keywords: [
+        'federalist', 'federalism', 'ethnic rights', 'kurdish rights', 'baloch rights',
+        'arab rights', 'azeri rights', 'decentralization', 'regional autonomy',
+        'pdki', 'komala', 'democratic party of iranian kurdistan'
+      ]},
+
+      // Iranian Opposition - Reformist (within system but opposition-leaning)
+      { party: 'Reformist', country: 'Iran', weight: 1.5, keywords: [
+        'reformist', 'green movement', 'iranian reformist', 'mousavi', 'karroubi',
+        'khatami', 'reform movement', '2009 protests', 'where is my vote',
+        'moderate faction', 'pragmatist', 'rouhani supporter'
+      ]},
+
+      // Iranian Opposition - Left/Socialist
+      { party: 'Iranian Left/Socialist', country: 'Iran', weight: 1.5, keywords: [
+        'tudeh party', 'iranian communist', 'fadaiyan', 'fada\'i', 'iranian socialist',
+        'workers party', 'marxist iranian', 'leftist opposition', 'socialist iran'
+      ]},
+
+      // Iranian Opposition - Woman Life Freedom Movement
+      { party: 'Woman Life Freedom Movement', country: 'Iran', weight: 2, keywords: [
+        'woman life freedom', 'zan zendegi azadi', 'mahsa amini', 'jina amini',
+        '2022 protests', 'hijab protests', 'women\'s rights iran', 'morality police',
+        'jin jiyan azadi', 'feminist movement iran'
+      ]},
+
+      // Iranian Regime - Principalist/Hardliner
+      { party: 'Principalist (Hardliner)', country: 'Iran', weight: 1.5, keywords: [
+        'principalist', 'osulgarayan', 'hardliner', 'conservative faction', 'raisi',
+        'khamenei loyalist', 'revolutionary guard', 'irgc', 'sepah', 'basij',
+        'velayat-e faqih', 'islamic revolution', 'regime supporter'
+      ]},
+
+      // Iranian Regime - Moderate/Pragmatist (within system)
+      { party: 'Regime Moderate', country: 'Iran', weight: 1, keywords: [
+        'regime moderate', 'pragmatic conservative', 'larijani', 'qalibaf',
+        'system reformer', 'within-system moderate'
+      ]},
+
+      // Pan-Iranist
+      { party: 'Pan-Iranist', country: 'Iran', weight: 1.5, keywords: [
+        'pan-iranist', 'pan-iranism', 'greater iran', 'iranian nationalism',
+        'sumka', 'iranian nationalist', 'nationalist front'
+      ]},
     ];
 
     // Ideological indicators
     const ideologyPatterns: Array<{ label: string; keywords: string[]; economic: number; social: number; auth: number }> = [
+      // Western Political Spectrum
       { label: 'Conservative', keywords: ['conservative', 'right-wing', 'traditional values', 'pro-business', 'free market conservative'], economic: 60, social: 50, auth: 20 },
       { label: 'Liberal', keywords: ['liberal', 'progressive', 'left-leaning', 'social justice'], economic: -40, social: -50, auth: -20 },
       { label: 'Libertarian', keywords: ['libertarian', 'small government', 'free market', 'individual liberty', 'anti-regulation'], economic: 80, social: -30, auth: -70 },
@@ -353,6 +421,18 @@ export class PoliticalAgent extends BaseAgent {
       { label: 'Nationalist', keywords: ['nationalist', 'patriot', 'america first', 'anti-globalist', 'national sovereignty'], economic: 40, social: 60, auth: 40 },
       { label: 'Pro-Capitalism', keywords: ['capitalist', 'entrepreneur', 'free enterprise', 'pro-business', 'wealth creation'], economic: 70, social: 20, auth: 0 },
       { label: 'Anti-Communist', keywords: ['anti-communist', 'anti-socialism', 'fled communism', 'escaped socialism', 'refugee from'], economic: 60, social: 30, auth: 0 },
+
+      // Iranian Political Spectrum
+      { label: 'Pro-Secular', keywords: ['secular', 'secularism', 'separation of mosque', 'non-religious government', 'secular state', 'laicism'], economic: 20, social: -40, auth: -30 },
+      { label: 'Pro-Democracy (Iran)', keywords: ['democratic iran', 'free iran', 'democracy for iran', 'free elections', 'referendum', 'people\'s vote'], economic: 0, social: -30, auth: -50 },
+      { label: 'Anti-Regime', keywords: ['anti-regime', 'regime change', 'overthrow regime', 'islamic republic opposition', 'end theocracy', 'down with dictator'], economic: 0, social: -20, auth: -40 },
+      { label: 'Constitutional Monarchist', keywords: ['constitutional monarchy', 'parliamentary monarchy', 'ceremonial king', 'crowned republic', 'pahlavi'], economic: 30, social: 20, auth: 10 },
+      { label: 'Iranian Nationalist', keywords: ['persian pride', 'iranian nationalism', 'pre-islamic iran', 'cyrus', 'persepolis', 'iranian heritage', 'ancient persia'], economic: 30, social: 40, auth: 20 },
+      { label: 'Human Rights Advocate', keywords: ['human rights', 'political prisoners', 'freedom of speech', 'women\'s rights', 'minority rights', 'civil liberties'], economic: 0, social: -50, auth: -60 },
+      { label: 'Pro-Western', keywords: ['pro-western', 'western alliance', 'us ally', 'european ties', 'nato', 'western values'], economic: 50, social: -10, auth: -20 },
+      { label: 'Anti-Western', keywords: ['anti-western', 'anti-american', 'anti-imperialist', 'resistance axis', 'death to america'], economic: -30, social: 50, auth: 60 },
+      { label: 'Islamist', keywords: ['islamist', 'islamic governance', 'sharia', 'velayat-e faqih', 'theocracy', 'religious rule'], economic: -20, social: 80, auth: 80 },
+      { label: 'Feminist (Iran)', keywords: ['women\'s rights iran', 'hijab freedom', 'compulsory hijab', 'gender equality iran', 'woman life freedom'], economic: 0, social: -70, auth: -50 },
     ];
 
     // Endorsement patterns
