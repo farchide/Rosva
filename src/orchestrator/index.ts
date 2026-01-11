@@ -109,10 +109,22 @@ export interface Source {
   reliabilityScore: number;
 }
 
+export type RelationshipType =
+  | 'AFFILIATED_WITH'
+  | 'WORKED_WITH'
+  | 'SPOKE_AT'
+  | 'QUOTED_BY'
+  | 'FUNDED_BY'
+  | 'MEMBER_OF'
+  | 'CONNECTED_TO'
+  | 'APPEARED_WITH'
+  | 'OPPOSES'
+  | 'SUPPORTS';
+
 export interface Relationship {
   from: string;
   to: string;
-  type: string;
+  type: RelationshipType;
   strength: number;
   evidence: Source[];
   timeframe?: { start?: Date; end?: Date };

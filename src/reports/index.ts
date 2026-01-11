@@ -35,15 +35,25 @@ interface PersonEntity {
   attributes: any[];
 }
 
+type VerificationStatus = 'unverified' | 'partially_verified' | 'verified' | 'contradicted';
+
 interface Finding {
   id: string;
   type: string;
   subject: string;
   claim: string;
+  evidence: Evidence[];
   confidence: number;
-  verificationStatus: string;
+  verificationStatus: VerificationStatus;
   sources: Source[];
-  timestamp?: Date;
+  contradictions?: Finding[];
+  timestamp: Date;
+}
+
+interface Evidence {
+  type: string;
+  content: string;
+  source: Source;
 }
 
 interface Source {
@@ -51,6 +61,8 @@ interface Source {
   url: string;
   title: string;
   type: string;
+  publishedDate?: Date;
+  accessedDate: Date;
   reliabilityScore: number;
 }
 

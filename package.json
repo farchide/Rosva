@@ -1,14 +1,17 @@
 {
   "name": "rosva",
   "version": "0.1.0",
-  "description": "Deep Agentic Person Research System using RuVector",
+  "description": "Deep Agentic Person Research System",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "scripts": {
     "build": "tsc",
     "start": "node dist/index.js",
-    "dev": "ts-node src/index.ts",
-    "test": "jest",
+    "dev": "npx ts-node src/index.ts",
+    "test": "npx ts-node src/test.ts",
+    "sandbox": "npx ts-node src/sandbox.ts",
+    "research": "npx ts-node src/real-research.ts",
+    "demo": "npx ts-node src/demo.ts",
     "lint": "eslint src/**/*.ts",
     "clean": "rm -rf dist"
   },
@@ -17,27 +20,24 @@
     "research",
     "vector-database",
     "multi-agent",
-    "ruvector",
-    "gnn"
+    "e2b"
   ],
   "author": "",
   "license": "MIT",
   "dependencies": {
-    "ruvector": "^1.0.0",
-    "@ruvector/core": "^1.0.0",
-    "@ruvector/gnn": "^1.0.0",
+    "@anthropic-ai/sdk": "^0.32.0",
+    "@e2b/code-interpreter": "^1.0.0",
     "axios": "^1.6.0",
-    "yaml": "^2.3.0"
+    "cheerio": "^1.0.0",
+    "yaml": "^2.3.0",
+    "hnswlib-node": "^3.0.0",
+    "openai": "^4.0.0"
   },
   "devDependencies": {
     "@types/node": "^20.0.0",
     "typescript": "^5.3.0",
     "ts-node": "^10.9.0",
-    "jest": "^29.0.0",
-    "@types/jest": "^29.0.0",
-    "eslint": "^8.0.0",
-    "@typescript-eslint/eslint-plugin": "^6.0.0",
-    "@typescript-eslint/parser": "^6.0.0"
+    "@types/jest": "^29.0.0"
   },
   "engines": {
     "node": ">=18.0.0"
