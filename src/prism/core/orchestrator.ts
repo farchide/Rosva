@@ -10,6 +10,7 @@ import { NetworkAgent } from '../agents/network-agent';
 import { PoliticalAgent } from '../agents/political-agent';
 import { FundingMediaAgent } from '../agents/funding-agent';
 import { SocialMediaAgent, SocialMediaResult } from '../agents/social-media-agent';
+import { OutlierDetector, createPatternProfile, AnalysisContent } from '../analysis/outlier-detector';
 import {
   PersonProfile,
   Entity,
@@ -18,7 +19,8 @@ import {
   ResearchReport,
   NetworkMetrics,
   TimelineEvent,
-  SocialMediaAnalysis
+  SocialMediaAnalysis,
+  OutlierAnalysis
 } from './types';
 
 export interface SearchProvider {
@@ -49,6 +51,7 @@ export class PRISMOrchestrator {
   private politicalAgent: PoliticalAgent;
   private fundingMediaAgent: FundingMediaAgent;
   private socialMediaAgent: SocialMediaAgent;
+  private outlierDetector: OutlierDetector;
 
   private entities: Map<string, Entity> = new Map();
   private relationships: Map<string, Relationship> = new Map();
@@ -70,6 +73,7 @@ export class PRISMOrchestrator {
     this.politicalAgent = new PoliticalAgent();
     this.fundingMediaAgent = new FundingMediaAgent();
     this.socialMediaAgent = new SocialMediaAgent();
+    this.outlierDetector = new OutlierDetector();
   }
 
   /**
@@ -119,8 +123,12 @@ export class PRISMOrchestrator {
     console.log('📊 Phase 7: Computing network metrics...');
     const metrics = this.calculateMetrics();
 
+    // Phase 8: Outlier Detection
+    console.log('🔍 Phase 8: Detecting narrative outliers and contradictions...');
+    const outlierAnalysis = this.detectOutliers(subject, politicalAffiliation, socialMediaResults, searchResults);
+
     // Build final profile
-    const profile = this.buildProfile(subject, bioResults, networkResults, politicalResults, timeline, politicalAffiliation, socialMediaResults);
+    const profile = this.buildProfile(subject, bioResults, networkResults, politicalResults, timeline, politicalAffiliation, socialMediaResults, outlierAnalysis);
 
     // Generate report
     const report: ResearchReport = {
@@ -534,6 +542,106 @@ export class PRISMOrchestrator {
   }
 
   /**
+   * Detect narrative outliers and contradictions
+   */
+  private detectOutliers(
+    subject: string,
+    politicalAffiliation: any,
+    socialMediaResults: SocialMediaResult | undefined,
+    searchResults: SearchResult[]
+  ): OutlierAnalysis {
+    // Determine primary stances from analysis
+    const iranStance = politicalAffiliation?.primaryParty?.country === 'Iran'
+      ? (politicalAffiliation.primaryParty.partyName.toLowerCase().includes('regime') ? 'PRO_REGIME' : 'PRO_OPPOSITION')
+      : socialMediaResults?.iranStance?.stance === 'Pro-Opposition' ? 'PRO_OPPOSITION'
+      : socialMediaResults?.iranStance?.stance === 'Pro-Regime' ? 'PRO_REGIME'
+      : 'UNKNOWN';
+
+    const politicalLeaning = politicalAffiliation?.secondaryParties?.find((p: any) => p.country === 'USA')?.partyName
+      || socialMediaResults?.politicalSummary?.primaryLeaning
+      || 'Unknown';
+
+    // Create pattern profile
+    const pattern = createPatternProfile(
+      iranStance as 'PRO_OPPOSITION' | 'PRO_REGIME' | 'NEUTRAL' | 'UNKNOWN',
+      politicalLeaning
+    );
+
+    // Gather content for analysis
+    const content: AnalysisContent = {
+      tweets: searchResults.map(r => ({ text: r.snippet, date: r.date })),
+      hashtags: this.extractHashtags(searchResults),
+      mentions: this.extractMentions(searchResults),
+      connections: socialMediaResults?.xAnalysis?.notableConnections?.map(c => ({
+        username: c.username,
+        type: c.connectionType
+      })) || []
+    };
+
+    // Run outlier detection
+    const result = this.outlierDetector.analyze(subject, pattern, content);
+
+    // Convert to our type format
+    return {
+      totalOutliers: result.totalOutliers,
+      criticalOutliers: result.criticalOutliers,
+      consistencyScore: result.consistencyScore,
+      iranStanceConsistency: result.iranStanceConsistency,
+      politicalConsistency: result.politicalConsistency,
+      outliers: result.outliers.map(o => ({
+        id: o.id,
+        type: o.type,
+        severity: o.severity,
+        category: o.category,
+        description: o.description,
+        expectedBehavior: o.expectedBehavior,
+        actualBehavior: o.actualBehavior,
+        evidence: o.evidence[0]?.content || '',
+        date: o.date,
+        source: o.source,
+        confidence: o.confidence,
+        possibleExplanations: o.possibleExplanations
+      })),
+      redFlags: result.redFlags,
+      narrativeSummary: result.narrativeSummary
+    };
+  }
+
+  /**
+   * Extract hashtags from search results
+   */
+  private extractHashtags(results: SearchResult[]): string[] {
+    const hashtags: string[] = [];
+    const pattern = /#([A-Za-z0-9_]+)/g;
+
+    for (const result of results) {
+      let match;
+      while ((match = pattern.exec(result.snippet)) !== null) {
+        hashtags.push(match[1]);
+      }
+    }
+
+    return hashtags;
+  }
+
+  /**
+   * Extract @mentions from search results
+   */
+  private extractMentions(results: SearchResult[]): string[] {
+    const mentions: string[] = [];
+    const pattern = /@([A-Za-z0-9_]+)/g;
+
+    for (const result of results) {
+      let match;
+      while ((match = pattern.exec(result.snippet)) !== null) {
+        mentions.push(match[1]);
+      }
+    }
+
+    return mentions;
+  }
+
+  /**
    * Build final profile
    */
   private buildProfile(
@@ -543,7 +651,8 @@ export class PRISMOrchestrator {
     politicalResults: any,
     timeline: TimelineEvent[],
     politicalAffiliation?: any,
-    socialMediaResults?: SocialMediaResult
+    socialMediaResults?: SocialMediaResult,
+    outlierAnalysis?: OutlierAnalysis
   ): PersonProfile {
     const subjectEntity = this.entities.get(`person_${subject.toLowerCase().replace(/\s+/g, '_')}`)!;
 
@@ -655,7 +764,8 @@ export class PRISMOrchestrator {
         coalitions: networkResults.coalitions || [],
         ideologicalSpectrum: []
       } : undefined,
-      politicalAffiliation: politicalAffiliation || undefined
+      politicalAffiliation: politicalAffiliation || undefined,
+      outlierAnalysis: outlierAnalysis || undefined
     };
   }
 

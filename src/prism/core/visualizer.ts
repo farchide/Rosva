@@ -17,7 +17,9 @@ import {
   NetworkMetrics,
   TimelineEvent,
   PoliticalAffiliation,
-  SocialMediaAnalysis
+  SocialMediaAnalysis,
+  OutlierAnalysis,
+  NarrativeOutlier
 } from './types';
 
 export class PRISMVisualizer {
@@ -31,6 +33,7 @@ export class PRISMVisualizer {
     output += this.generateSubjectProfile(report.profile);
     output += this.generatePoliticalAffiliation(report.profile.politicalAffiliation);
     output += this.generateSocialMediaAnalysis(report.profile.mediaPresence.socialMediaAnalysis);
+    output += this.generateOutlierAnalysis(report.profile.outlierAnalysis);
     output += this.generateNetworkMetrics(report.metrics, report.graph.entities.length, report.graph.relationships.length);
     output += this.generateFamilyNetwork(report.profile);
     output += this.generateOrganizations(report.profile);
@@ -360,6 +363,133 @@ export class PRISMVisualizer {
 `;
 
     return output;
+  }
+
+  /**
+   * Generate outlier analysis section
+   */
+  private generateOutlierAnalysis(analysis?: OutlierAnalysis): string {
+    if (!analysis) {
+      return '';
+    }
+
+    let output = `
+┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+┃                                    NARRATIVE CONSISTENCY ANALYSIS                                               ┃
+┣━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┫
+┃                                                                                                                 ┃
+`;
+
+    // Consistency Score Overview
+    const consistencyBar = this.generateConfidenceBar(analysis.consistencyScore);
+    const consistencyLabel = analysis.consistencyScore >= 80 ? 'HIGH CONSISTENCY' :
+                             analysis.consistencyScore >= 50 ? 'MODERATE CONSISTENCY' : 'LOW CONSISTENCY';
+
+    output += `┃   📊 OVERALL CONSISTENCY SCORE                                                                                  ┃
+┃   ┌─────────────────────────────────────────────────────────────────────────────────────────────────────┐     ┃
+┃   │  Consistency: ${consistencyBar}  ${analysis.consistencyScore.toString().padStart(3)}%  [${consistencyLabel}]                 │     ┃
+┃   │                                                                                                     │     ┃
+┃   │  Iran Stance Consistency:     ${this.generateMiniBar(analysis.iranStanceConsistency)} ${analysis.iranStanceConsistency.toString().padStart(3)}%                                   │     ┃
+┃   │  Political Consistency:       ${this.generateMiniBar(analysis.politicalConsistency)} ${analysis.politicalConsistency.toString().padStart(3)}%                                   │     ┃
+┃   │                                                                                                     │     ┃
+┃   │  Total Outliers: ${analysis.totalOutliers.toString().padEnd(5)} Critical: ${analysis.criticalOutliers.toString().padEnd(5)}                                              │     ┃
+┃   └─────────────────────────────────────────────────────────────────────────────────────────────────────┘     ┃
+┃                                                                                                                 ┃
+`;
+
+    // Red Flags
+    if (analysis.redFlags.length > 0) {
+      output += `┃   🚩 RED FLAGS                                                                                                  ┃\n`;
+      for (const flag of analysis.redFlags) {
+        output += `┃     ⚠️  ${flag.substring(0, 90).padEnd(92)}\n`;
+      }
+      output += `┃                                                                                                                 ┃\n`;
+    }
+
+    // Detected Outliers
+    if (analysis.outliers.length > 0) {
+      output += `┃   🔍 DETECTED OUTLIERS & CONTRADICTIONS                                                                         ┃\n`;
+
+      // Group by severity
+      const criticalOutliers = analysis.outliers.filter(o => o.severity === 'CRITICAL');
+      const highOutliers = analysis.outliers.filter(o => o.severity === 'HIGH');
+      const otherOutliers = analysis.outliers.filter(o => o.severity !== 'CRITICAL' && o.severity !== 'HIGH');
+
+      // Critical outliers
+      for (const outlier of criticalOutliers.slice(0, 3)) {
+        output += this.formatOutlier(outlier, '🔴');
+      }
+
+      // High outliers
+      for (const outlier of highOutliers.slice(0, 3)) {
+        output += this.formatOutlier(outlier, '🟠');
+      }
+
+      // Other outliers (just count)
+      if (otherOutliers.length > 0) {
+        output += `┃     ℹ️  ${otherOutliers.length} additional minor inconsistencies detected                                               ┃\n`;
+      }
+
+      output += `┃                                                                                                                 ┃\n`;
+    } else {
+      output += `┃   ✅ NO SIGNIFICANT OUTLIERS DETECTED                                                                           ┃
+┃      Narrative appears consistent with stated positions                                                         ┃
+┃                                                                                                                 ┃
+`;
+    }
+
+    // Narrative Summary
+    output += `┃   📝 NARRATIVE SUMMARY                                                                                          ┃
+┃   ┌─────────────────────────────────────────────────────────────────────────────────────────────────────┐     ┃\n`;
+
+    // Split summary into lines
+    const summaryLines = this.wrapText(analysis.narrativeSummary, 90);
+    for (const line of summaryLines) {
+      output += `┃   │  ${line.padEnd(93)}│     ┃\n`;
+    }
+
+    output += `┃   └─────────────────────────────────────────────────────────────────────────────────────────────────────┘     ┃
+┃                                                                                                                 ┃
+┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
+
+`;
+
+    return output;
+  }
+
+  /**
+   * Format a single outlier for display
+   */
+  private formatOutlier(outlier: NarrativeOutlier, icon: string): string {
+    let output = '';
+    output += `┃   ${icon} [${outlier.severity}] ${outlier.type} - ${outlier.category.padEnd(65)}\n`;
+    output += `┃      ${outlier.description.substring(0, 90).padEnd(92)}\n`;
+    output += `┃      Expected: ${outlier.expectedBehavior.substring(0, 75).padEnd(78)}\n`;
+    output += `┃      Actual:   ${outlier.actualBehavior.substring(0, 75).padEnd(78)}\n`;
+    output += `┃      Confidence: ${outlier.confidence}% │ Explanations: ${outlier.possibleExplanations.slice(0, 2).join(', ').substring(0, 50)}\n`;
+    output += `┃                                                                                                                 ┃\n`;
+    return output;
+  }
+
+  /**
+   * Wrap text to fit within width
+   */
+  private wrapText(text: string, width: number): string[] {
+    const words = text.split(' ');
+    const lines: string[] = [];
+    let currentLine = '';
+
+    for (const word of words) {
+      if ((currentLine + ' ' + word).trim().length <= width) {
+        currentLine = (currentLine + ' ' + word).trim();
+      } else {
+        if (currentLine) lines.push(currentLine);
+        currentLine = word;
+      }
+    }
+    if (currentLine) lines.push(currentLine);
+
+    return lines.length > 0 ? lines : [''];
   }
 
   /**

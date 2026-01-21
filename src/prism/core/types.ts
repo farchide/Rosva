@@ -139,6 +139,7 @@ export interface PersonProfile {
   timeline: TimelineEvent[];
   oppositionMap?: OppositionMap;
   politicalAffiliation?: PoliticalAffiliation;
+  outlierAnalysis?: OutlierAnalysis;
 }
 
 // ============================================================================
@@ -544,6 +545,36 @@ export interface IdeologicalPosition {
     authoritarian?: number;
     nationalist?: number;
   };
+}
+
+// ============================================================================
+// OUTLIER DETECTION
+// ============================================================================
+
+export interface OutlierAnalysis {
+  totalOutliers: number;
+  criticalOutliers: number;
+  consistencyScore: number; // 0-100, higher = more consistent
+  iranStanceConsistency: number;
+  politicalConsistency: number;
+  outliers: NarrativeOutlier[];
+  redFlags: string[];
+  narrativeSummary: string;
+}
+
+export interface NarrativeOutlier {
+  id: string;
+  type: 'CONTRADICTION' | 'FLIP_FLOP' | 'ANOMALY' | 'INCONSISTENCY' | 'SUSPICIOUS' | 'ASSOCIATION';
+  severity: 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW';
+  category: 'IRAN_STANCE' | 'POLITICAL' | 'FINANCIAL' | 'NETWORK' | 'NARRATIVE' | 'TEMPORAL';
+  description: string;
+  expectedBehavior: string;
+  actualBehavior: string;
+  evidence: string;
+  date?: string;
+  source?: string;
+  confidence: number;
+  possibleExplanations: string[];
 }
 
 // ============================================================================
