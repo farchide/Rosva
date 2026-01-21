@@ -2,7 +2,7 @@
  * PRISM Social Media Research Agent
  *
  * Analyzes social media presence across platforms:
- * - X (Twitter) - Primary platform
+ * - X (Twitter) - Primary platform with live API support
  * - Instagram, YouTube, TikTok (future)
  *
  * Extracts:
@@ -11,10 +11,15 @@
  * - Political indicators
  * - Network connections
  * - Iran-related activity
+ *
+ * Data Sources:
+ * - X API v2 (when X_BEARER_TOKEN is set)
+ * - Search result analysis (fallback)
  */
 
 import { BaseAgent, AgentConfig, SearchResult } from './base-agent';
 import { XProvider, XAnalysisResult, XIranActivity, XPoliticalIndicators } from '../social/x-provider';
+import { XApiClient, XSubjectAnalysis } from '../social/x-api-client';
 
 export interface SocialMediaProfile {
   platform: 'X' | 'INSTAGRAM' | 'YOUTUBE' | 'TIKTOK' | 'FACEBOOK' | 'LINKEDIN';
@@ -49,12 +54,25 @@ export interface SocialMediaResult {
 
 export class SocialMediaAgent extends BaseAgent {
   private xProvider: XProvider;
+  private xApiClient: XApiClient;
 
   constructor(config: AgentConfig = {}) {
     super('SocialMediaAgent', config);
     this.xProvider = new XProvider();
+    this.xApiClient = new XApiClient();
   }
 
+  /**
+   * Check if X API is available for live data
+   */
+  isXApiConfigured(): boolean {
+    return this.xApiClient.isConfigured();
+  }
+
+  /**
+   * Research subject's social media presence
+   * Uses live X API when available, otherwise falls back to search analysis
+   */
   async research(subject: string, context?: Record<string, any>): Promise<SocialMediaResult> {
     const result: SocialMediaResult = {
       profiles: [],
@@ -74,7 +92,337 @@ export class SocialMediaAgent extends BaseAgent {
       }
     };
 
+    // Try live X API first
+    if (this.xApiClient.isConfigured()) {
+      console.log('  Using live X API for social media analysis...');
+      try {
+        const xAnalysis = await this.xApiClient.analyzeSubject(subject);
+        this.integrateXApiResults(result, xAnalysis, subject);
+      } catch (error: any) {
+        console.log(`  X API analysis failed: ${error.message}`);
+      }
+    }
+
     return result;
+  }
+
+  /**
+   * Integrate X API results into the social media result
+   */
+  private integrateXApiResults(result: SocialMediaResult, xAnalysis: XSubjectAnalysis, subject: string): void {
+    // Add X profile if found
+    if (xAnalysis.profile) {
+      result.profiles.push({
+        platform: 'X',
+        username: xAnalysis.profile.username,
+        displayName: xAnalysis.profile.name,
+        url: `https://x.com/${xAnalysis.profile.username}`,
+        verified: xAnalysis.profile.verified || false,
+        followerCount: xAnalysis.profile.public_metrics?.followers_count || 0,
+        followingCount: xAnalysis.profile.public_metrics?.following_count,
+        postCount: xAnalysis.profile.public_metrics?.tweet_count,
+        bio: xAnalysis.profile.description,
+        joinDate: xAnalysis.profile.created_at
+      });
+    }
+
+    // Set primary platform
+    result.platforms = ['X'];
+    result.primaryPlatform = 'X';
+
+    // Analyze political hashtags from tweets
+    const politicalHashtags = this.analyzePoliticalHashtags(xAnalysis.politicalHashtags);
+    const iranHashtags = xAnalysis.iranHashtags;
+
+    // Build XAnalysisResult format from live data
+    result.xAnalysis = {
+      profile: xAnalysis.profile ? {
+        username: xAnalysis.profile.username,
+        displayName: xAnalysis.profile.name,
+        bio: xAnalysis.profile.description || '',
+        verified: xAnalysis.profile.verified || false,
+        followerCount: xAnalysis.profile.public_metrics?.followers_count || 0,
+        followingCount: xAnalysis.profile.public_metrics?.following_count || 0,
+        tweetCount: xAnalysis.profile.public_metrics?.tweet_count || 0
+      } : null,
+      recentTweets: xAnalysis.tweets.map(t => ({
+        id: t.id,
+        text: t.text,
+        createdAt: t.created_at || '',
+        likeCount: t.public_metrics?.like_count || 0,
+        retweetCount: t.public_metrics?.retweet_count || 0,
+        replyCount: t.public_metrics?.reply_count || 0,
+        quoteCount: t.public_metrics?.quote_count || 0,
+        hashtags: t.entities?.hashtags?.map(h => h.tag) || [],
+        mentions: t.entities?.mentions?.map(m => m.username) || [],
+        urls: t.entities?.urls?.map(u => u.expanded_url) || [],
+        isRetweet: t.referenced_tweets?.some(rt => rt.type === 'retweeted') || false,
+        isReply: t.referenced_tweets?.some(rt => rt.type === 'replied_to') || false
+      })),
+      engagement: {
+        totalTweets: xAnalysis.tweets.length,
+        averageLikes: xAnalysis.tweets.reduce((sum, t) => sum + (t.public_metrics?.like_count || 0), 0) / Math.max(1, xAnalysis.tweets.length),
+        averageRetweets: xAnalysis.tweets.reduce((sum, t) => sum + (t.public_metrics?.retweet_count || 0), 0) / Math.max(1, xAnalysis.tweets.length),
+        averageReplies: xAnalysis.tweets.reduce((sum, t) => sum + (t.public_metrics?.reply_count || 0), 0) / Math.max(1, xAnalysis.tweets.length),
+        engagementRate: 0,
+        topHashtags: this.countHashtags(xAnalysis.politicalHashtags),
+        topMentions: this.countMentions(xAnalysis.mentionedUsers),
+        postingFrequency: 'Unknown',
+        mostActiveHours: []
+      },
+      influence: {
+        followerToFollowingRatio: xAnalysis.profile ?
+          (xAnalysis.profile.public_metrics?.followers_count || 0) / Math.max(1, xAnalysis.profile.public_metrics?.following_count || 1) : 0,
+        engagementRate: 0,
+        reachScore: xAnalysis.profile ? Math.min(100, Math.log10((xAnalysis.profile.public_metrics?.followers_count || 0) + 1) * 20) : 0,
+        influenceScore: this.calculateXInfluenceScore(xAnalysis),
+        audienceQuality: 'UNKNOWN',
+        verificationStatus: xAnalysis.profile?.verified ? 'VERIFIED' : 'NOT_VERIFIED'
+      },
+      notableConnections: xAnalysis.following
+        .filter(u => u.verified || (u.public_metrics?.followers_count || 0) > 100000)
+        .slice(0, 20)
+        .map(u => ({
+          username: u.username,
+          displayName: u.name,
+          connectionType: 'FOLLOWING' as const,
+          verified: u.verified || false,
+          followerCount: u.public_metrics?.followers_count || 0,
+          category: this.categorizeUser(u)
+        })),
+      politicalIndicators: {
+        detectedAffiliations: politicalHashtags.affiliations,
+        politicalHashtags: politicalHashtags.hashtags,
+        engagedPoliticians: [],
+        politicalTopics: politicalHashtags.topics
+      },
+      iranRelatedActivity: {
+        iranRelatedTweets: xAnalysis.iranRelatedTweets.length,
+        oppositionHashtags: iranHashtags.filter(h => this.isOppositionHashtag(h)),
+        oppositionMentions: xAnalysis.mentionedUsers.filter(u => this.isOppositionFigure(u)),
+        regimeHashtags: iranHashtags.filter(h => this.isRegimeHashtag(h)),
+        stance: this.determineIranStance(xAnalysis),
+        confidence: this.calculateIranConfidence(xAnalysis),
+        evidence: this.gatherIranEvidence(xAnalysis)
+      }
+    };
+
+    // Calculate overall influence
+    result.overallInfluence = this.calculateOverallInfluence(result);
+
+    // Generate summaries
+    result.politicalSummary = this.generatePoliticalSummary(result.xAnalysis.politicalIndicators);
+    result.iranStance = this.generateIranSummary(result.xAnalysis.iranRelatedActivity);
+  }
+
+  /**
+   * Calculate X influence score from live data
+   */
+  private calculateXInfluenceScore(analysis: XSubjectAnalysis): number {
+    let score = 0;
+
+    if (analysis.profile) {
+      // Follower count
+      score += Math.min(40, Math.log10((analysis.profile.public_metrics?.followers_count || 0) + 1) * 10);
+      // Verified bonus
+      if (analysis.profile.verified) score += 20;
+    }
+
+    // Tweet engagement
+    const avgEngagement = analysis.tweets.reduce((sum, t) => {
+      return sum + (t.public_metrics?.like_count || 0) + (t.public_metrics?.retweet_count || 0) * 2;
+    }, 0) / Math.max(1, analysis.tweets.length);
+
+    score += Math.min(20, Math.log10(avgEngagement + 1) * 5);
+
+    // Notable connections
+    score += Math.min(20, analysis.following.filter(u => u.verified).length * 2);
+
+    return Math.min(100, Math.round(score));
+  }
+
+  /**
+   * Analyze political hashtags
+   */
+  private analyzePoliticalHashtags(hashtags: string[]): {
+    affiliations: { party: string; confidence: number; evidence: string[] }[];
+    hashtags: { tag: string; count: number; leaning: string }[];
+    topics: string[];
+  } {
+    const tagCounts: Record<string, number> = {};
+    const tagLeanings: Record<string, string> = {};
+
+    const leaningMap: Record<string, string> = {
+      'maga': 'Republican', 'trump': 'Republican', 'republican': 'Republican', 'gop': 'Republican',
+      'conservative': 'Conservative', 'biden': 'Democrat', 'democrat': 'Democrat',
+      'liberal': 'Liberal', 'progressive': 'Progressive', 'libertarian': 'Libertarian'
+    };
+
+    for (const tag of hashtags) {
+      const lower = tag.toLowerCase();
+      tagCounts[lower] = (tagCounts[lower] || 0) + 1;
+
+      for (const [keyword, leaning] of Object.entries(leaningMap)) {
+        if (lower.includes(keyword)) {
+          tagLeanings[lower] = leaning;
+          break;
+        }
+      }
+    }
+
+    const hashtagResults = Object.entries(tagCounts)
+      .filter(([tag]) => tagLeanings[tag])
+      .map(([tag, count]) => ({
+        tag: '#' + tag,
+        count,
+        leaning: tagLeanings[tag]
+      }))
+      .sort((a, b) => b.count - a.count);
+
+    // Detect affiliations
+    const affiliationCounts: Record<string, number> = {};
+    for (const h of hashtagResults) {
+      affiliationCounts[h.leaning] = (affiliationCounts[h.leaning] || 0) + h.count;
+    }
+
+    const affiliations = Object.entries(affiliationCounts)
+      .map(([party, count]) => ({
+        party,
+        confidence: Math.min(90, count * 15),
+        evidence: hashtagResults.filter(h => h.leaning === party).map(h => `Used ${h.tag}`)
+      }))
+      .sort((a, b) => b.confidence - a.confidence);
+
+    // Detect topics
+    const topics: string[] = [];
+    const topicKeywords: Record<string, string> = {
+      'immigration': 'Immigration', 'border': 'Immigration',
+      'abortion': 'Abortion', 'prolife': 'Abortion', 'prochoice': 'Abortion',
+      'gun': 'Gun Rights', '2a': 'Gun Rights',
+      'climate': 'Climate', 'healthcare': 'Healthcare',
+      'economy': 'Economy', 'tax': 'Economy'
+    };
+
+    for (const tag of hashtags) {
+      const lower = tag.toLowerCase();
+      for (const [keyword, topic] of Object.entries(topicKeywords)) {
+        if (lower.includes(keyword) && !topics.includes(topic)) {
+          topics.push(topic);
+        }
+      }
+    }
+
+    return { affiliations, hashtags: hashtagResults.slice(0, 10), topics };
+  }
+
+  /**
+   * Count hashtag occurrences
+   */
+  private countHashtags(tags: string[]): { tag: string; count: number }[] {
+    const counts: Record<string, number> = {};
+    for (const tag of tags) {
+      const lower = '#' + tag.toLowerCase();
+      counts[lower] = (counts[lower] || 0) + 1;
+    }
+    return Object.entries(counts)
+      .map(([tag, count]) => ({ tag, count }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 20);
+  }
+
+  /**
+   * Count mention occurrences
+   */
+  private countMentions(users: string[]): { user: string; count: number }[] {
+    const counts: Record<string, number> = {};
+    for (const user of users) {
+      counts[user] = (counts[user] || 0) + 1;
+    }
+    return Object.entries(counts)
+      .map(([user, count]) => ({ user, count }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 20);
+  }
+
+  /**
+   * Categorize a user by their profile
+   */
+  private categorizeUser(user: { username: string; name: string; description?: string }): string {
+    const desc = (user.description || '').toLowerCase();
+    const name = user.name.toLowerCase();
+
+    if (/journalist|reporter|editor|news/i.test(desc)) return 'Journalist';
+    if (/politician|senator|congress|mayor|governor/i.test(desc)) return 'Politician';
+    if (/ceo|founder|entrepreneur/i.test(desc)) return 'Business';
+    if (/activist|advocate/i.test(desc)) return 'Activist';
+    if (/author|writer/i.test(desc)) return 'Author';
+    if (/iran|persian|pahlavi/i.test(desc)) return 'Iranian Opposition';
+
+    return 'Public Figure';
+  }
+
+  /**
+   * Check if hashtag is opposition-related
+   */
+  private isOppositionHashtag(tag: string): boolean {
+    const opposition = ['womanlifefreedom', 'mahsaamini', 'freeiran', 'iranprotests',
+      'pahlavi', 'rezapahlavi', 'mek', 'ncri', 'regimechange'];
+    return opposition.some(o => tag.toLowerCase().includes(o));
+  }
+
+  /**
+   * Check if hashtag is regime-related
+   */
+  private isRegimeHashtag(tag: string): boolean {
+    const regime = ['irgc', 'islamicrepublic', 'khamenei'];
+    return regime.some(r => tag.toLowerCase().includes(r));
+  }
+
+  /**
+   * Check if user is known opposition figure
+   */
+  private isOppositionFigure(username: string): boolean {
+    const figures = ['rezapahlavi', 'masikihlalinejad', 'iranintl', 'vikihlai'];
+    return figures.some(f => username.toLowerCase().includes(f));
+  }
+
+  /**
+   * Determine Iran stance from analysis
+   */
+  private determineIranStance(analysis: XSubjectAnalysis): 'PRO_OPPOSITION' | 'PRO_REGIME' | 'NEUTRAL' | 'UNKNOWN' {
+    const oppositionScore = analysis.iranHashtags.filter(h => this.isOppositionHashtag(h)).length;
+    const regimeScore = analysis.iranHashtags.filter(h => this.isRegimeHashtag(h)).length;
+
+    if (oppositionScore > regimeScore && oppositionScore > 0) return 'PRO_OPPOSITION';
+    if (regimeScore > oppositionScore && regimeScore > 0) return 'PRO_REGIME';
+    if (oppositionScore > 0 || regimeScore > 0) return 'NEUTRAL';
+    return 'UNKNOWN';
+  }
+
+  /**
+   * Calculate Iran stance confidence
+   */
+  private calculateIranConfidence(analysis: XSubjectAnalysis): number {
+    const total = analysis.iranHashtags.length + analysis.iranRelatedTweets.length;
+    return Math.min(95, 30 + total * 5);
+  }
+
+  /**
+   * Gather Iran evidence
+   */
+  private gatherIranEvidence(analysis: XSubjectAnalysis): string[] {
+    const evidence: string[] = [];
+
+    if (analysis.iranRelatedTweets.length > 0) {
+      evidence.push(`Found ${analysis.iranRelatedTweets.length} Iran-related tweets`);
+    }
+
+    const oppositionHashtags = analysis.iranHashtags.filter(h => this.isOppositionHashtag(h));
+    if (oppositionHashtags.length > 0) {
+      evidence.push(`Used opposition hashtags: ${oppositionHashtags.slice(0, 3).join(', ')}`);
+    }
+
+    return evidence;
   }
 
   /**

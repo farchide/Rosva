@@ -3,16 +3,24 @@
 /**
  * PRISM Research Runner
  *
- * Runs full analysis on any subject using E2B-powered web search.
+ * Runs full analysis on any subject using multiple data sources:
+ * - E2B-powered web search
+ * - X (Twitter) API search
+ * - Fallback demo data
  *
  * Usage:
  *   npx ts-node src/prism/run-research.ts "Patrick Bet-David"
  *   npx ts-node src/prism/run-research.ts "Reza Pahlavi"
+ *
+ * Environment Variables:
+ *   E2B_API_KEY       - Enable E2B web scraping
+ *   X_BEARER_TOKEN    - Enable X/Twitter API search
  */
 
 import { PRISMOrchestrator } from './core/orchestrator';
 import { PRISMVisualizer } from './core/visualizer';
 import { E2BSearchProvider, SearchResult } from './search/e2b-search-provider';
+import { XSearchProvider } from './search/x-search-provider';
 
 async function main() {
   const subject = process.argv[2] || 'Patrick Bet-David';
@@ -28,25 +36,60 @@ async function main() {
 ║  ╚═╝     ╚═╝  ╚═╝╚═╝╚══════╝╚═╝     ╚═╝                                      ║
 ║                                                                              ║
 ║  Open-Source Truth & Accountability Engine                                   ║
-║  E2B-Powered Research Mode                                                   ║
+║  Multi-Source Research Mode (E2B + X/Twitter)                                ║
 ║  Research Target: ${subject.padEnd(55)}║
 ║                                                                              ║
 ╚══════════════════════════════════════════════════════════════════════════════╝
 `);
 
-  console.log('🚀 Starting E2B-powered research...\n');
+  // Check available data sources
+  const xProvider = new XSearchProvider();
+  const e2bConfigured = !!process.env.E2B_API_KEY;
+  const xConfigured = xProvider.isConfigured();
 
-  let searchResults: SearchResult[];
+  console.log('📡 Data Sources:');
+  console.log(`   E2B Web Search: ${e2bConfigured ? '✓ Configured' : '✗ Not configured (set E2B_API_KEY)'}`);
+  console.log(`   X/Twitter API:  ${xConfigured ? '✓ Configured' : '✗ Not configured (set X_BEARER_TOKEN)'}`);
+  console.log('');
+
+  let searchResults: SearchResult[] = [];
+
+  // Phase 1: Try E2B web search
+  console.log('🚀 Starting multi-source research...\n');
 
   try {
-    // Use E2B for real web search
-    const provider = new E2BSearchProvider();
-    searchResults = await provider.researchSubject(subject);
+    console.log('🌐 Phase 1: E2B Web Search...');
+    const e2bProvider = new E2BSearchProvider();
+    const e2bResults = await e2bProvider.researchSubject(subject);
+    searchResults.push(...e2bResults);
+    console.log(`   ✓ Found ${e2bResults.length} web results\n`);
   } catch (error) {
-    console.error('❌ E2B search failed:', error instanceof Error ? error.message : error);
-    console.log('\n💡 Falling back to curated demo data...\n');
+    console.log(`   ✗ E2B search failed: ${error instanceof Error ? error.message : error}\n`);
+  }
 
-    // Fallback to demo data if E2B fails
+  // Phase 2: Try X/Twitter search
+  if (xConfigured) {
+    try {
+      console.log('🐦 Phase 2: X/Twitter Search...');
+      const xResults = await xProvider.search(subject);
+      searchResults.push(...xResults);
+      console.log(`   ✓ Found ${xResults.length} X results\n`);
+
+      // Also get Iran-specific content
+      console.log('🇮🇷 Phase 2b: X Iran-Related Content...');
+      const iranResults = await xProvider.searchIranContent(subject);
+      searchResults.push(...iranResults);
+      console.log(`   ✓ Found ${iranResults.length} Iran-related X results\n`);
+    } catch (error) {
+      console.log(`   ✗ X search failed: ${error instanceof Error ? error.message : error}\n`);
+    }
+  } else {
+    console.log('🐦 Phase 2: X/Twitter Search... (skipped - not configured)\n');
+  }
+
+  // Phase 3: Fallback to demo data if no results
+  if (searchResults.length === 0) {
+    console.log('💡 No live data available. Using curated demo data...\n');
     searchResults = getDemoData(subject);
   }
 
