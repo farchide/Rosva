@@ -67,3 +67,14 @@ export {
   IntelligenceVisualizer,
   intelligenceVisualizer
 } from './intelligence-visualizer';
+
+// Vector Intelligence (RuVector)
+export {
+  VectorIntelligence,
+  vectorIntelligence,
+  VectorEntity,
+  SemanticMatch,
+  DocumentIntelligence,
+  PatternCluster,
+  LearningMetrics
+} from './vector-intelligence';

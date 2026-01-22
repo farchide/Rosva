@@ -19,6 +19,7 @@
     "research:pbd": "npx ts-node src/prism/run-research.ts \"Patrick Bet-David\"",
     "research:subject": "npx ts-node src/prism/run-research.ts",
     "intelligence": "npx ts-node src/prism/run-intelligence.ts",
+    "vector-intel": "npx ts-node src/prism/run-vector-intel.ts",
     "lint": "eslint src/**/*.ts",
     "clean": "rm -rf dist"
   },
@@ -37,15 +38,16 @@
     "@e2b/code-interpreter": "^1.0.0",
     "axios": "^1.6.0",
     "cheerio": "^1.0.0",
-    "yaml": "^2.3.0",
     "hnswlib-node": "^3.0.0",
-    "openai": "^4.0.0"
+    "openai": "^4.0.0",
+    "ruvector": "^0.1.96",
+    "yaml": "^2.3.0"
   },
   "devDependencies": {
+    "@types/jest": "^29.0.0",
     "@types/node": "^20.0.0",
-    "typescript": "^5.3.0",
     "ts-node": "^10.9.0",
-    "@types/jest": "^29.0.0"
+    "typescript": "^5.3.0"
   },
   "engines": {
     "node": ">=18.0.0"
