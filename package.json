@@ -17,7 +17,8 @@
     "pahlavi": "npx ts-node src/deep/reza-pahlavi-research.ts",
     "prism": "npx ts-node src/prism/cli.ts",
     "research:pbd": "npx ts-node src/prism/run-research.ts \"Patrick Bet-David\"",
-    "research": "npx ts-node src/prism/run-research.ts",
+    "research:subject": "npx ts-node src/prism/run-research.ts",
+    "intelligence": "npx ts-node src/prism/run-intelligence.ts",
     "lint": "eslint src/**/*.ts",
     "clean": "rm -rf dist"
   },
