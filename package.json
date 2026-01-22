@@ -20,6 +20,7 @@
     "research:subject": "npx ts-node src/prism/run-research.ts",
     "intelligence": "npx ts-node src/prism/run-intelligence.ts",
     "vector-intel": "npx ts-node src/prism/run-vector-intel.ts",
+    "web": "npx ts-node src/prism/web/server.ts",
     "lint": "eslint src/**/*.ts",
     "clean": "rm -rf dist"
   },
@@ -38,12 +39,16 @@
     "@e2b/code-interpreter": "^1.0.0",
     "axios": "^1.6.0",
     "cheerio": "^1.0.0",
+    "cors": "^2.8.5",
+    "express": "^5.2.1",
     "hnswlib-node": "^3.0.0",
     "openai": "^4.0.0",
     "ruvector": "^0.1.96",
     "yaml": "^2.3.0"
   },
   "devDependencies": {
+    "@types/cors": "^2.8.19",
+    "@types/express": "^5.0.6",
     "@types/jest": "^29.0.0",
     "@types/node": "^20.0.0",
     "ts-node": "^10.9.0",
